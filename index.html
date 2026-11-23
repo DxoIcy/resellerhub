@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ResellerHub — Reseller &amp; Agent System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f1ea;--card:#fffdf9;--ink:#13212d;--ink2:#3d4b57;--muted:#76808a;--line:#e3ddd0;--line2:#efeae0;
+  --brand:#0d5c55;--brand-d:#08413c;--brand-l:#e3efec;--accent:#d27a23;--accent-l:#fbeedd;
+  --ok:#0f7a45;--ok-l:#e2f3ea;--warn:#a85d06;--warn-l:#fcefd9;--err:#b42318;--err-l:#fde7e5;--info:#1f5fa8;--info-l:#e4eefa;
+  --r:12px;--sh:0 1px 2px rgba(19,33,45,.05),0 4px 16px rgba(19,33,45,.05);
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.5 Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:800;letter-spacing:-.01em}
+button,input,select,textarea{font:inherit;color:inherit}
+.muted{color:var(--muted)}.sm{font-size:12.5px}.num{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+[hidden]{display:none!important}
+
+/* buttons & inputs */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--card);padding:8px 14px;border-radius:9px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s}
+.btn:hover{border-color:#cfc7b6;background:#fff}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.primary:hover{background:var(--brand-d)}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{background:var(--err);border-color:var(--err);color:#fff}
+.btn.ghost{background:transparent}
+.btn.xs{padding:4px 9px;font-size:12.5px;border-radius:7px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+label.f{display:block;margin-bottom:12px}
+label.f>span{display:block;font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:5px}
+.in,select.in,textarea.in{width:100%;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 11px;outline:none;transition:.15s}
+.in:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-l)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.chk{display:flex;gap:8px;align-items:center;margin:4px 0 12px;font-weight:600}
+
+/* auth */
+.auth{min-height:100vh;display:grid;grid-template-columns:1.05fr 1fr}
+.auth-hero{background:var(--brand-d);color:#e9f3f1;padding:56px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.auth-hero:after{content:"";position:absolute;right:-120px;bottom:-120px;width:420px;height:420px;border-radius:50%;border:60px solid rgba(255,255,255,.05)}
+.auth-hero h1{font-size:40px;line-height:1.1;max-width:440px;color:#fff}
+.auth-hero p{max-width:420px;opacity:.8}
+.tierlist{display:flex;flex-direction:column;gap:10px;max-width:380px;position:relative;z-index:1}
+.tierlist div{display:flex;justify-content:space-between;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 14px;background:rgba(255,255,255,.04)}
+.auth-form{display:flex;align-items:center;justify-content:center;padding:40px 24px}
+.auth-card{width:100%;max-width:400px}
+.tabs{display:flex;gap:4px;background:var(--line2);padding:4px;border-radius:10px;margin:22px 0}
+.tabs button{flex:1;border:0;background:transparent;padding:8px;border-radius:7px;font-weight:700;cursor:pointer;color:var(--muted)}
+.tabs button.on{background:#fff;color:var(--ink);box-shadow:var(--sh)}
+.hint{background:var(--accent-l);border:1px solid #f1d6b3;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:16px}
+.hint code{font-family:var(--mono);font-size:12px}
+
+/* shell */
+.shell{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+.side{background:var(--ink);color:#c9d2da;padding:22px 14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;padding:0 8px;color:#fff;font-weight:800;font-size:16px}
+.logo i{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center;font-style:normal;color:#fff}
+.who{background:rgba(255,255,255,.06);border-radius:10px;padding:12px}
+.who b{color:#fff;display:block}
+.nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.nav button{all:unset;cursor:pointer;padding:9px 12px;border-radius:8px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.nav button:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav button.on{background:var(--brand);color:#fff}
+.nav .cnt{background:var(--accent);color:#fff;font-size:11px;border-radius:20px;padding:1px 7px}
+.main{padding:28px 32px 60px;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.top h2{font-size:26px}
+.demo{background:var(--accent-l);border:1px solid #f1d6b3;color:#7a4307;padding:8px 12px;border-radius:9px;font-size:13px;margin-bottom:18px}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
+.card-h{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line2);gap:10px;flex-wrap:wrap}
+.card-h h3{font-size:15px}
+.card-b{padding:16px 18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+.kpi{padding:16px 18px}
+.kpi .l{font-size:12.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.kpi .v{font-size:24px;font-weight:800;margin-top:4px;font-family:var(--mono);letter-spacing:-.02em}
+.kpi .s{font-size:12.5px;color:var(--muted)}
+.cols{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+.stack{display:flex;flex-direction:column;gap:18px}
+
+/* table */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:700}
+td{padding:11px 14px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+.empty{padding:34px;text-align:center;color:var(--muted)}
+.acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+
+/* badges */
+.bd{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
+.bd.ok{background:var(--ok-l);color:var(--ok)}.bd.warn{background:var(--warn-l);color:var(--warn)}.bd.err{background:var(--err-l);color:var(--err)}.bd.info{background:var(--info-l);color:var(--info)}.bd.grey{background:var(--line2);color:var(--muted)}
+.bd.tier{background:var(--accent-l);color:#8a4a0b}
+.bd.role{background:rgba(255,255,255,.12);color:#fff}
+
+/* shop */
+.shop{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.pcard{padding:16px;display:flex;flex-direction:column;gap:6px}
+.pcard h4{font-size:15px;line-height:1.3}
+.pc-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.sku{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.prices{display:flex;align-items:baseline;gap:8px;margin-top:4px}
+.rrp{font-size:12.5px;color:var(--muted);text-decoration:line-through}
+.yours{font-size:19px;font-weight:800;font-family:var(--mono);color:var(--brand)}
+.pc-foot{margin-top:auto;padding-top:8px}
+.stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:9px;overflow:hidden;width:max-content;background:#fff}
+.stepper button{border:0;background:transparent;width:34px;height:34px;cursor:pointer;font-size:17px;font-weight:700}
+.stepper button:hover{background:var(--line2)}
+.stepper input{width:52px;border:0;text-align:center;font-family:var(--mono);outline:none;-moz-appearance:textfield}
+.stepper input::-webkit-inner-spin-button{-webkit-appearance:none}
+.cart{position:sticky;top:20px}
+.cline{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.ctot{display:flex;justify-content:space-between;font-weight:800;font-size:17px;padding:12px 0 4px}
+.tierbar{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:14px;background:var(--brand-l);border:1px solid #c7dfda;border-radius:var(--r)}
+.search{max-width:280px}
+
+/* modal */
+#modal-root .bg{position:fixed;inset:0;background:rgba(19,33,45,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow:auto}
+.modal{background:var(--card);border-radius:14px;width:100%;max-width:520px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal h3{font-size:19px;margin-bottom:14px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.paytotal{display:flex;justify-content:space-between;align-items:center;background:var(--ink);color:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.paytotal b{font-family:var(--mono);font-size:22px}
+.pm{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.pmopt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;background:#fff}
+.pmopt:has(input:checked){border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-l)}
+.pmopt small{display:block;color:var(--muted)}
+.bankbox{background:var(--line2);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13.5px}
+.bankbox div{display:flex;justify-content:space-between;padding:2px 0}
+.qr{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.sim{font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px;margin-top:6px}
+.items td{padding:8px 6px}
+
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center}
+.t{background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;box-shadow:var(--sh);font-weight:600;max-width:90vw}
+.t.err{background:var(--err)}
+
+.loading{min-height:100vh;display:grid;place-items:center;text-align:center}
+.spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:s 1s linear infinite;margin:0 auto 14px}
+@keyframes s{to{transform:rotate(360deg)}}
+
+@media (max-width:980px){
+  .shop,.cols{grid-template-columns:1fr}
+  .cart{position:static}
+}
+@media (max-width:820px){
+  .auth{grid-template-columns:1fr}.auth-hero{padding:32px 24px}.auth-hero h1{font-size:28px}.tierlist{display:none}
+  .shell{grid-template-columns:1fr}
+  .side{position:static;height:auto;padding:14px;gap:12px}
+  .nav{flex-direction:row;overflow-x:auto;gap:4px}
+  .nav button{white-space:nowrap}
+  .who{display:flex;justify-content:space-between;align-items:center}
+  .main{padding:20px 16px 50px}
+  .grid2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast"></div>
+<script>
+/* ================= configuration ================= */
+const SB_URL = 'https://ukvdfhuecqtbsgdyzvcq.supabase.co';
+const SB_KEY = 'sb_publishable_EBU24KkgacFm2xrbQWeCFg_gl5Av6fq'; // publishable key: safe in the browser, data is protected by row-level security
+const AGENT_DOMAIN = 'agents.resellerhub.invalid';
+const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+/* ================= utilities ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const RM = n => 'RM ' + (Number(n) || 0).toLocaleString('en-MY', {minimumFractionDigits:2, maximumFractionDigits:2});
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+const int = v => Math.max(0, parseInt(v, 10) || 0);
+const now = () => new Date().toISOString();
+const fdate = iso => iso ? new Date(iso).toLocaleString('en-MY', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '—';
+const fday = iso => iso ? new Date(iso).toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'}) : '—';
+const thisMonth = iso => { if (!iso) return false; const d = new Date(iso), n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear(); };
+const errMsg = e => {
+  if (!e) return 'Something went wrong.';
+  if (e.code === '23505') return /sku/i.test(e.message || '') ? 'Another product already uses that SKU.' : 'That value is already in use.';
+  if (e.code === '23503') return 'This is still in use, so it can\'t be removed.';
+  if (/Failed to fetch|NetworkError/i.test(e.message || '')) return 'Can\'t reach the server. Check your connection.';
+  return e.message || e.error_description || 'Something went wrong.';
+};
+
+/* ================= state & data ================= */
+const COLLS = ['products', 'users', 'orders', 'sales', 'inventory', 'config'];
+const C = {}; const clearData = () => COLLS.forEach(c => C[c] = {}); clearData();
+const S = { mode:'loading', fatal:null, pub:{company:'ResellerHub', hasAdmin:true, tiers:[]}, me:null, authEmail:null, view:'dashboard', cart:{}, q:'', authTab:'login', ofilter:'all', pending:null };
+
+const DEFAULT_SETTINGS = { companyName:'ResellerHub HQ', bankName:'', accountName:'', accountNo:'', defaultCommission:10, lowStock:20 };
+const settings = () => C.config.settings || {...DEFAULT_SETTINGS, companyName: S.pub.company};
+const tiers = () => (C.config.tiers && C.config.tiers.length) ? C.config.tiers : (S.pub.tiers.length ? S.pub.tiers : [{id:'standard', name:'Standard', discount:0}]);
+const tierOf = id => tiers().find(t => t.id === id) || tiers()[tiers().length - 1];
+const priceFor = (p, tierId) => r2((p.rrp || 0) * (1 - (tierOf(tierId).discount || 0) / 100));
+const list = coll => Object.entries(C[coll]).map(([id, v]) => ({id, ...v}));
+const users = () => list('users');
+const products = () => list('products').sort((a, b) => String(a.name).localeCompare(String(b.name)));
+const orders = () => list('orders').sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+const sales = () => list('sales').sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+const inv = rid => (C.inventory[rid] && C.inventory[rid].items) || {};
+const me = () => (S.me && C.users[S.me]) ? {id:S.me, ...C.users[S.me]} : null;
+const uname = id => (C.users[id] && (C.users[id].business || C.users[id].name)) || '—';
+const handle = u => u.role === 'agent' ? '@' + (u.username || '') : (u.email || '');
+const lowStock = () => Number(settings().lowStock) || 0;
+
+async function loadAll(){
+  const res = await Promise.all([
+    sb.from('settings').select('*').eq('id', 1).maybeSingle(),
+    sb.from('tiers').select('*').order('sort').order('discount', {ascending:false}),
+    sb.from('products').select('*'),
+    sb.from('profiles').select('*'),
+    sb.from('inventory').select('*'),
+    sb.from('orders').select('*, order_items(*)').order('created_at', {ascending:false}).limit(1000),
+    sb.from('sales').select('*').order('created_at', {ascending:false}).limit(5000),
+  ]);
+  const bad = res.find(r => r.error); if (bad) throw bad.error;
+  const [st, ti, pr, pf, iv, od, sa] = res.map(r => r.data);
+  clearData();
+  if (st) C.config.settings = { companyName: st.company_name, bankName: st.bank_name, accountName: st.account_name, accountNo: st.account_no, defaultCommission: Number(st.default_commission), lowStock: st.low_stock };
+  C.config.tiers = (ti || []).map(t => ({id:t.id, name:t.name, discount:Number(t.discount), sort:t.sort}));
+  (pr || []).forEach(p => C.products[p.id] = {sku:p.sku, name:p.name, category:p.category, rrp:Number(p.rrp), hqStock:p.hq_stock, active:p.active, createdAt:p.created_at});
+  (pf || []).forEach(u => C.users[u.id] = {role:u.role, status:u.status, name:u.name, business:u.business, phone:u.phone, email:u.email, state:u.state, username:u.username, tier:u.tier, parentId:u.parent_id, commission: u.commission == null ? null : Number(u.commission), createdAt:u.created_at});
+  (iv || []).forEach(i => { (C.inventory[i.reseller_id] = C.inventory[i.reseller_id] || {items:{}}).items[i.product_id] = i.qty; });
+  (od || []).forEach(o => C.orders[o.id] = {number:o.number, resellerId:o.reseller_id, total:Number(o.total), status:o.status, createdAt:o.created_at, rejectReason:o.reject_reason,
+    items:(o.order_items || []).map(i => ({productId:i.product_id, name:i.name, qty:i.qty, unitPrice:Number(i.unit_price)})),
+    payment: o.payment_method ? {method:o.payment_method, bank:o.payment_bank, ref:o.payment_ref, paidAt:o.paid_at} : null});
+  (sa || []).forEach(s => C.sales[s.id] = {sellerId:s.seller_id, sellerRole:s.seller_role, resellerId:s.reseller_id, productId:s.product_id, productName:s.product_name, qty:s.qty, price:Number(s.price), total:Number(s.total), rate:Number(s.rate), commission:Number(s.commission), customer:s.customer, customerPhone:s.customer_phone, createdAt:s.created_at});
+}
+async function refresh(){
+  try { await loadAll(); } catch(e) { return; }
+  const blocked = accessProblem(S.me);
+  if (blocked) { toast(blocked, 'err'); await signOut(); return; }
+  render();
+}
+function accessProblem(uid){
+  const p = C.users[uid];
+  if (!p) return 'This account doesn\'t have access to the system.';
+  if (p.status === 'pending') return 'Your application is still waiting for HQ approval.';
+  if (p.status !== 'active') return 'This account is suspended. Please contact HQ.';
+  if (p.role === 'agent' && (!C.users[p.parentId] || C.users[p.parentId].status !== 'active')) return 'Your reseller\'s account is inactive. Please contact them.';
+  return null;
+}
+async function enter(user){
+  S.authEmail = user.email;
+  try { await loadAll(); } catch(e) { toast(errMsg(e), 'err'); }
+  const blocked = accessProblem(user.id);
+  if (blocked) { toast(blocked, 'err'); await signOut(); return false; }
+  S.me = user.id; S.view = 'dashboard'; return true;
+}
+async function signOut(){ try { await sb.auth.signOut(); } catch(e) {} S.me = null; S.authEmail = null; S.cart = {}; S.q = ''; clearData(); S.view = 'dashboard'; await loadPublic(); render(); }
+async function loadPublic(){
+  const {data, error} = await sb.rpc('get_public_info');
+  if (error) throw error;
+  S.pub = {company: data.company_name, hasAdmin: data.has_admin, tiers: (data.tiers || []).map(t => ({...t, discount:Number(t.discount)}))};
+}
+
+// Run a server call, then reload data. Returns the result, or null on failure (after showing the error).
+async function call(fn, okMsg){
+  try {
+    const r = await fn();
+    if (r && r.error) throw r.error;
+    await refresh();
+    if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r && r.data) : okMsg);
+    return (r && r.data != null) ? r.data : true;
+  } catch(e) { toast(errMsg(e), 'err'); return null; }
+}
+async function accounts(body){
+  const {data, error} = await sb.functions.invoke('accounts', {body});
+  if (error) { let m = error.message; try { const j = await error.context.json(); if (j && j.error) m = j.error; } catch(_) {} throw new Error(m); }
+  if (data && data.error) throw new Error(data.error);
+  return {data};
+}
+
+/* ================= boot ================= */
+async function boot(){
+  render();
+  try { await loadPublic(); }
+  catch(e) { S.fatal = 'Can\'t reach the server right now. Check your internet connection and reload the page.'; render(); return; }
+  const {data:{session}} = await sb.auth.getSession();
+  if (session) await enter(session.user);
+  S.mode = 'ready'; render();
+  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT' && S.me) { S.me = null; clearData(); render(); } });
+  setInterval(() => { if (S.me && document.visibilityState === 'visible' && !$('#modal-root').innerHTML) refresh(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (S.me && document.visibilityState === 'visible') refresh(); });
+}
+
+/* ================= rendering ================= */
+let lastHtml = '';
+function render(){
+  const app = $('#app');
+  const ae = document.activeElement;
+  const fid = ae && ae.id && app.contains(ae) ? ae.id : null;
+  let caret = null; try { caret = fid ? ae.selectionStart : null; } catch(e) {}
+  const html = build();
+  if (html === lastHtml) return;
+  lastHtml = html; app.innerHTML = html;
+  if (fid) { const el = document.getElementById(fid); if (el) { el.focus(); try { if (caret != null) el.setSelectionRange(caret, caret); } catch(e) {} } }
+}
+function build(){
+  if (S.fatal) return `<div class="loading"><div><b>${esc(S.fatal)}</b><p><button class="btn" onclick="location.reload()">Reload</button></p></div></div>`;
+  if (S.mode === 'loading') return `<div class="loading"><div><div class="spin"></div><b>Loading…</b></div></div>`;
+  if (!S.pub.hasAdmin && !S.me) return setupView();
+  const u = me();
+  if (!u) return authView();
+  return shell(u);
+}
+
+const badge = (cls, t) => `<span class="bd ${cls}">${esc(t)}</span>`;
+const OSTATUS = { awaiting_payment:['warn','Awaiting payment'], payment_submitted:['info','Payment to verify'], completed:['ok','Completed'], rejected:['err','Rejected'], cancelled:['grey','Cancelled'] };
+const ostatus = s => badge(...(OSTATUS[s] || ['grey', s]));
+const USTATUS = { active:['ok','Active'], pending:['warn','Pending approval'], suspended:['err','Suspended'] };
+const ustatus = s => badge(...(USTATUS[s] || ['grey', s]));
+const PM = { fpx:'FPX Online Banking', duitnow:'DuitNow QR', transfer:'Bank transfer' };
+const stockBadge = n => n <= 0 ? badge('err', 'Out of stock') : n <= lowStock() ? badge('warn', 'Low · ' + n) : badge('ok', 'In stock · ' + n);
+const kpi = (l, v, s) => `<div class="card kpi"><div class="l">${esc(l)}</div><div class="v">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+function table(heads, rows, empty){
+  if (!rows.length) return `<div class="empty">${esc(empty || 'Nothing here yet.')}</div>`;
+  return `<div class="tw"><table><thead><tr>${heads.map(h => { const r = h.startsWith('>'); return `<th class="${r ? 'r' : ''}">${esc(r ? h.slice(1) : h)}</th>`; }).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+function pageTop(title, sub, actions){ return `<div class="top"><div><h2>${esc(title)}</h2>${sub ? `<div class="muted">${sub}</div>` : ''}</div><div class="acts">${actions || ''}</div></div>`; }
+
+/* ---------- setup & auth ---------- */
+function setupView(){
+  return `<div class="auth"><div class="auth-hero"><div class="logo"><i>R</i>ResellerHub</div>
+  <div><h1>Set up your HQ in one step.</h1><p>Create the head-office admin account. You'll then add products, set reseller tiers and approve resellers.</p></div><div></div></div>
+  <div class="auth-form"><div class="auth-card"><h2>First-time setup</h2><p class="muted">No admin account exists yet. The first account created here becomes the HQ admin, and this screen then closes for good.</p>
+  <form data-form="setup" style="margin-top:18px">
+    <label class="f"><span>Company name</span><input class="in" name="company" required placeholder="e.g. Sinar Wellness Sdn Bhd"></label>
+    <label class="f"><span>Your name</span><input class="in" name="name" required></label>
+    <label class="f"><span>Email</span><input class="in" name="email" type="email" required autocomplete="email"></label>
+    <label class="f"><span>Password</span><input class="in" name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+    <button class="btn primary block">Create HQ admin</button>
+  </form></div></div></div>`;
+}
+function authView(){
+  const login = S.authTab === 'login';
+  return `<div class="auth">
+  <div class="auth-hero"><div class="logo"><i>R</i>${esc(settings().companyName)}</div>
+    <div><h1>Reseller &amp; agent portal</h1><p>Check live HQ stock, order at your tier price, pay online, and grow your own team of agents.</p></div>
+    <div class="tierlist">${tiers().map(t => `<div><b>${esc(t.name)}</b><span>${t.discount}% off RRP</span></div>`).join('')}</div>
+  </div>
+  <div class="auth-form"><div class="auth-card">
+    <h2>${login ? 'Welcome back' : 'Become a reseller'}</h2>
+    <p class="muted">${login ? 'HQ and resellers sign in with email. Agents use their username.' : 'Apply below. HQ reviews every application before activating your account.'}</p>
+    <div class="tabs"><button class="${login ? 'on' : ''}" data-act="authTab" data-id="login">Sign in</button><button class="${!login ? 'on' : ''}" data-act="authTab" data-id="register">Apply as reseller</button></div>
+    ${login ? `<form data-form="login">
+      <label class="f"><span>Email or agent username</span><input class="in" id="lg_user" name="id" required autocomplete="username"></label>
+      <label class="f"><span>Password</span><input class="in" id="lg_pw" name="password" type="password" required autocomplete="current-password"></label>
+      <button class="btn primary block">Sign in</button></form>`
+    : `<form data-form="register">
+      <div class="grid2"><label class="f"><span>Full name</span><input class="in" name="name" required></label>
+      <label class="f"><span>Business name</span><input class="in" name="business" placeholder="Optional"></label>
+      <label class="f"><span>Phone</span><input class="in" name="phone" required></label>
+      <label class="f"><span>State</span><input class="in" name="state" placeholder="e.g. Selangor"></label></div>
+      <label class="f"><span>Email (you'll sign in with this)</span><input class="in" name="email" type="email" required autocomplete="email"></label>
+      <label class="f"><span>Password</span><input class="in" name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+      <button class="btn accent block">Submit application</button></form>`}
+  </div></div></div>`;
+}
+
+/* ---------- shell ---------- */
+const NAV = {
+  admin:[['dashboard','Dashboard'],['orders','Orders & payments'],['products','Products & stock'],['resellers','Resellers'],['agents','Agents'],['sales','Sales'],['settings','Settings'],['profile','Profile']],
+  reseller:[['dashboard','Dashboard'],['shop','Check stock & order'],['myorders','My orders'],['inventory','My inventory'],['agents','My agents'],['sales','Sales'],['profile','Profile']],
+  agent:[['dashboard','Dashboard'],['stock','Check stock'],['sales','My sales'],['profile','Profile']],
+};
+function shell(u){
+  const nav = NAV[u.role] || [];
+  if (!nav.some(n => n[0] === S.view)) S.view = 'dashboard';
+  const counts = {};
+  if (u.role === 'admin') {
+    counts.orders = orders().filter(o => o.status === 'payment_submitted').length;
+    counts.resellers = users().filter(x => x.role === 'reseller' && x.status === 'pending').length;
+  }
+  if (u.role === 'reseller') counts.myorders = orders().filter(o => o.resellerId === u.id && o.status === 'awaiting_payment').length;
+  const sub = u.role === 'reseller' ? badge('tier', tierOf(u.tier).name + ' reseller') : u.role === 'agent' ? `<span class="sm">Agent of ${esc(uname(u.parentId))}</span>` : badge('role', 'HQ admin');
+  return `<div class="shell"><aside class="side">
+    <div class="logo"><i>R</i>${esc(settings().companyName)}</div>
+    <div class="who"><div><b>${esc(u.name)}</b>${sub}</div><button class="btn xs ghost" style="color:#c9d2da;border-color:rgba(255,255,255,.15);margin-top:8px" data-act="logout">Sign out</button></div>
+    <nav class="nav">${nav.map(([k, l]) => `<button class="${S.view === k ? 'on' : ''}" data-act="nav" data-id="${k}"><span>${l}</span>${counts[k] ? `<span class="cnt">${counts[k]}</span>` : ''}</button>`).join('')}</nav>
+  </aside><main class="main">${view(u)}</main></div>`;
+}
+function view(u){
+  const v = S.view, r = u.role;
+  if (v === 'dashboard') return r === 'admin' ? adminDash(u) : r === 'reseller' ? resellerDash(u) : agentDash(u);
+  if (v === 'orders') return adminOrders();
+  if (v === 'products') return adminProducts();
+  if (v === 'resellers') return adminResellers();
+  if (v === 'agents') return agentsView(u);
+  if (v === 'sales') return salesView(u);
+  if (v === 'settings') return settingsView();
+  if (v === 'shop') return shopView(u);
+  if (v === 'myorders') return myOrders(u);
+  if (v === 'inventory') return inventoryView(u);
+  if (v === 'stock') return agentStock(u);
+  if (v === 'profile') return profileView(u);
+  return '';
+}
+
+/* ---------- shared row builders ---------- */
+function orderRows(list, isAdmin){
+  return list.map(o => {
+    const units = (o.items || []).reduce((s, i) => s + i.qty, 0);
+    let acts = `<button class="btn xs" data-act="viewOrder" data-id="${o.id}">View</button>`;
+    if (isAdmin && o.status === 'payment_submitted') acts += `<button class="btn xs primary" data-act="approveOrder" data-id="${o.id}">Verify &amp; release</button><button class="btn xs" data-act="rejectOrder" data-id="${o.id}">Reject</button>`;
+    if (!isAdmin && o.status === 'awaiting_payment') acts += `<button class="btn xs accent" data-act="pay" data-id="${o.id}">Pay now</button><button class="btn xs" data-act="cancelOrder" data-id="${o.id}">Cancel</button>`;
+    return `<tr><td><b class="num">${esc(o.number)}</b><div class="sm muted">${fdate(o.createdAt)}</div></td>
+      ${isAdmin ? `<td>${esc(uname(o.resellerId))}<div class="sm muted">${esc(tierOf((C.users[o.resellerId] || {}).tier).name)}</div></td>` : ''}
+      <td>${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'} · ${units} units</td>
+      <td class="r num">${RM(o.total)}</td>
+      <td>${o.payment ? `${esc(PM[o.payment.method] || o.payment.method)}<div class="sm muted num">${esc(o.payment.ref || '')}</div>` : '<span class="muted">—</span>'}</td>
+      <td>${ostatus(o.status)}</td><td><div class="acts">${acts}</div></td></tr>`;
+  });
+}
+function saleRows(list, showSeller){
+  return list.map(s => `<tr><td>${fday(s.createdAt)}</td><td><b>${esc(s.productName)}</b><div class="sm muted">${esc(s.customer || '')}${s.customerPhone ? ' · ' + esc(s.customerPhone) : ''}</div></td>
+    ${showSeller ? `<td>${esc((C.users[s.sellerId] || {}).name || '—')}<div class="sm muted">${s.sellerRole === 'agent' ? 'Agent' : 'Reseller'} · ${esc(uname(s.resellerId))}</div></td>` : ''}
+    <td class="r num">${s.qty}</td><td class="r num">${RM(s.price)}</td><td class="r num"><b>${RM(s.total)}</b></td><td class="r num">${s.commission ? RM(s.commission) : '—'}</td></tr>`);
+}
+const SALE_HEADS = seller => ['Date', 'Product / customer', ...(seller ? ['Sold by'] : []), '>Qty', '>Unit price', '>Total', '>Commission'];
+
+/* ---------- admin ---------- */
+function adminDash(){
+  const os = orders(), done = os.filter(o => o.status === 'completed');
+  const rev = done.reduce((s, o) => s + o.total, 0), revM = done.filter(o => thisMonth(o.createdAt)).reduce((s, o) => s + o.total, 0);
+  const verify = os.filter(o => o.status === 'payment_submitted');
+  const rs = users().filter(u => u.role === 'reseller'), ag = users().filter(u => u.role === 'agent' && u.status === 'active');
+  const pend = rs.filter(u => u.status === 'pending');
+  const low = products().filter(p => p.active !== false && (p.hqStock || 0) <= lowStock());
+  const field = sales().filter(s => thisMonth(s.createdAt)).reduce((s, x) => s + x.total, 0);
+  const topR = rs.filter(r => r.status === 'active').map(r => ({r, t: done.filter(o => o.resellerId === r.id).reduce((s, o) => s + o.total, 0)})).sort((a, b) => b.t - a.t).slice(0, 5);
+  const firstRun = !products().length ? `<div class="tierbar"><b>Welcome!</b><span>Start by adding your products, then check your bank details in Settings.</span><button class="btn xs primary" style="margin-left:auto" data-act="nav" data-id="products">Add products</button></div>` : '';
+  return pageTop('HQ dashboard', fday(now())) + firstRun + `<div class="kpis">
+    ${kpi('Revenue this month', RM(revM), 'All time ' + RM(rev))}
+    ${kpi('Payments to verify', verify.length, verify.length ? RM(verify.reduce((s, o) => s + o.total, 0)) + ' waiting' : 'All clear')}
+    ${kpi('Active resellers', rs.filter(r => r.status === 'active').length, pend.length ? pend.length + ' awaiting approval' : 'No pending applications')}
+    ${kpi('Active agents', ag.length, 'Field sales this month ' + RM(field))}
+  </div><div class="cols"><div class="stack">
+    <div class="card"><div class="card-h"><h3>Payments to verify</h3><button class="btn xs" data-act="nav" data-id="orders">All orders</button></div>${table(['Order', 'Reseller', 'Items', '>Total', 'Payment', 'Status', ''], orderRows(verify, true), 'No payments waiting for verification.')}</div>
+    <div class="card"><div class="card-h"><h3>Recent orders</h3></div>${table(['Order', 'Reseller', 'Items', '>Total', 'Payment', 'Status', ''], orderRows(os.slice(0, 6), true), 'No orders yet.')}</div>
+  </div><div class="stack">
+    <div class="card"><div class="card-h"><h3>Reseller applications</h3></div>${table(['Applicant', ''], pend.map(p => `<tr><td><b>${esc(p.business || p.name)}</b><div class="sm muted">${esc(p.name)} · ${esc(p.phone || '')}${p.state ? ' · ' + esc(p.state) : ''}<br>${esc(p.email || '')}</div></td><td><div class="acts"><button class="btn xs primary" data-act="approveUser" data-id="${p.id}">Approve</button></div></td></tr>`), 'No pending applications.')}</div>
+    <div class="card"><div class="card-h"><h3>Low stock at HQ</h3><button class="btn xs" data-act="nav" data-id="products">Manage</button></div>${table(['Product', '>Stock', ''], low.map(p => `<tr><td><b>${esc(p.name)}</b><div class="sku">${esc(p.sku)}</div></td><td class="r">${stockBadge(p.hqStock || 0)}</td><td><div class="acts"><button class="btn xs" data-act="restock" data-id="${p.id}">Restock</button></div></td></tr>`), 'Stock levels are healthy.')}</div>
+    <div class="card"><div class="card-h"><h3>Top resellers</h3></div>${table(['Reseller', '>Purchases'], topR.map(x => `<tr><td>${esc(x.r.business || x.r.name)} ${badge('tier', tierOf(x.r.tier).name)}</td><td class="r num">${RM(x.t)}</td></tr>`), 'No completed purchases yet.')}</div>
+  </div></div>`;
+}
+function adminOrders(){
+  const all = orders(), f = S.ofilter;
+  const shown = f === 'all' ? all : all.filter(o => o.status === f);
+  const tabs = [['all', 'All'], ['payment_submitted', 'To verify'], ['awaiting_payment', 'Awaiting payment'], ['completed', 'Completed'], ['rejected', 'Rejected'], ['cancelled', 'Cancelled']];
+  return pageTop('Orders & payments', 'Verify reseller payments to release stock from HQ to their inventory.') + `<div class="card"><div class="card-h"><div class="tabs" style="margin:0;flex-wrap:wrap">${tabs.map(([k, l]) => `<button class="${f === k ? 'on' : ''}" data-act="ofilter" data-id="${k}">${l} <span class="muted">${k === 'all' ? all.length : all.filter(o => o.status === k).length}</span></button>`).join('')}</div></div>
+  ${table(['Order', 'Reseller', 'Items', '>Total', 'Payment', 'Status', ''], orderRows(shown, true), 'No orders in this view.')}</div>`;
+}
+function adminProducts(){
+  const ts = tiers();
+  const rows = products().filter(p => !S.q || (p.name + ' ' + p.sku + ' ' + (p.category || '')).toLowerCase().includes(S.q.toLowerCase())).map(p => `<tr>
+    <td><b>${esc(p.name)}</b><div class="sku">${esc(p.sku)} · ${esc(p.category || 'Uncategorised')}</div></td>
+    <td class="r num">${RM(p.rrp)}</td>${ts.map(t => `<td class="r num">${RM(priceFor(p, t.id))}</td>`).join('')}
+    <td class="r">${stockBadge(p.hqStock || 0)}</td><td>${p.active === false ? badge('grey', 'Hidden') : badge('ok', 'Listed')}</td>
+    <td><div class="acts"><button class="btn xs" data-act="restock" data-id="${p.id}">Restock</button><button class="btn xs" data-act="editProduct" data-id="${p.id}">Edit</button></div></td></tr>`);
+  return pageTop('Products & stock', 'Tier prices are worked out from RRP and each tier\'s discount.', `<input class="in search" id="pq" data-inp="q" placeholder="Search products" value="${esc(S.q)}"><button class="btn primary" data-act="newProduct">+ Add product</button>`)
+    + `<div class="card">${table(['Product', '>RRP', ...ts.map(t => '>' + t.name), '>HQ stock', 'Listing', ''], rows, 'No products yet. Add your first product to start selling.')}</div>`;
+}
+function adminResellers(){
+  const os = orders().filter(o => o.status === 'completed');
+  const rows = users().filter(u => u.role === 'reseller').sort((a, b) => (a.status === 'pending' ? -1 : 0) - (b.status === 'pending' ? -1 : 0)).map(r => {
+    const ag = users().filter(a => a.role === 'agent' && a.parentId === r.id).length;
+    const tot = os.filter(o => o.resellerId === r.id).reduce((s, o) => s + o.total, 0);
+    let acts = r.status === 'pending' ? `<button class="btn xs primary" data-act="approveUser" data-id="${r.id}">Approve</button><button class="btn xs" data-act="suspendUser" data-id="${r.id}">Decline</button>`
+      : r.status === 'active' ? `<button class="btn xs" data-act="suspendUser" data-id="${r.id}">Suspend</button>` : `<button class="btn xs" data-act="approveUser" data-id="${r.id}">Reactivate</button>`;
+    acts += `<button class="btn xs" data-act="editUser" data-id="${r.id}">Edit</button>`;
+    return `<tr><td><b>${esc(r.business || r.name)}</b><div class="sm muted">${esc(r.name)} · ${esc(r.email || '')}</div></td><td>${esc(r.phone || '')}<div class="sm muted">${esc(r.state || '')}</div></td>
+      <td><select class="in" style="width:auto;padding:5px 8px" data-chg="tier" data-id="${r.id}">${tiers().map(t => `<option value="${t.id}" ${t.id === tierOf(r.tier).id ? 'selected' : ''}>${esc(t.name)} (${t.discount}%)</option>`).join('')}</select></td>
+      <td class="r num">${ag}</td><td class="r num">${RM(tot)}</td><td>${ustatus(r.status)}</td><td><div class="acts">${acts}</div></td></tr>`;
+  });
+  return pageTop('Resellers', 'Approve applications, assign tiers and manage accounts.', `<button class="btn primary" data-act="newUser" data-id="reseller">+ Register reseller</button>`)
+    + `<div class="card">${table(['Reseller', 'Contact', 'Tier', '>Agents', '>Purchases', 'Status', ''], rows, 'No resellers yet. Share this page so resellers can apply, or register one yourself.')}</div>`;
+}
+function settingsView(){
+  const st = settings();
+  return pageTop('Settings', 'Company details, bank account for transfers, tiers and commission.') + `<form data-form="settings" class="cols"><div class="stack">
+    <div class="card"><div class="card-h"><h3>Company &amp; payment details</h3></div><div class="card-b">
+      <label class="f"><span>Company name</span><input class="in" name="companyName" value="${esc(st.companyName)}" required></label>
+      <div class="grid2"><label class="f"><span>Bank</span><input class="in" name="bankName" value="${esc(st.bankName)}" placeholder="e.g. Maybank"></label>
+      <label class="f"><span>Account number</span><input class="in" name="accountNo" value="${esc(st.accountNo)}"></label></div>
+      <label class="f"><span>Account holder</span><input class="in" name="accountName" value="${esc(st.accountName)}"></label>
+      <div class="grid2"><label class="f"><span>Default agent commission (%)</span><input class="in" type="number" min="0" max="90" step="0.5" name="defaultCommission" value="${esc(st.defaultCommission)}"></label>
+      <label class="f"><span>Low-stock alert at (units)</span><input class="in" type="number" min="0" name="lowStock" value="${esc(st.lowStock)}"></label></div>
+    </div></div></div>
+    <div class="stack"><div class="card"><div class="card-h"><h3>Reseller tiers</h3><button type="button" class="btn xs" data-act="addTier">+ Add tier</button></div><div class="card-b">
+      <p class="sm muted" style="margin-top:0">Each tier buys at RRP minus its discount. New applicants start on the lowest tier.</p>
+      ${tiers().map((t, i) => `<div class="grid2" style="grid-template-columns:1fr 110px auto;align-items:end"><label class="f"><span>Tier ${i + 1}</span><input class="in" name="tn_${i}" value="${esc(t.name)}" required></label><label class="f"><span>Discount %</span><input class="in" type="number" min="0" max="90" step="0.5" name="td_${i}" value="${t.discount}" required></label><label class="f"><button type="button" class="btn xs" data-act="delTier" data-id="${t.id}" ${tiers().length < 2 ? 'disabled' : ''}>Remove</button></label></div>`).join('')}
+    </div></div><button class="btn primary">Save settings</button></div></form>`;
+}
+
+/* ---------- reseller ---------- */
+function resellerDash(u){
+  const t = tierOf(u.tier), mine = orders().filter(o => o.resellerId === u.id);
+  const spent = mine.filter(o => o.status === 'completed').reduce((s, o) => s + o.total, 0);
+  const items = inv(u.id); const units = Object.values(items).reduce((s, n) => s + n, 0);
+  const value = Object.entries(items).reduce((s, [pid, n]) => s + (C.products[pid] ? priceFor(C.products[pid], u.tier) * n : 0), 0);
+  const team = sales().filter(s => s.resellerId === u.id);
+  const teamM = team.filter(s => thisMonth(s.createdAt));
+  const ags = users().filter(a => a.role === 'agent' && a.parentId === u.id && a.status === 'active');
+  const unpaid = mine.filter(o => o.status === 'awaiting_payment');
+  return pageTop('Hi, ' + (u.name || '').split(' ')[0], `${badge('tier', t.name)} You buy at ${t.discount}% off RRP`, `<button class="btn" data-act="newSale">Record a sale</button><button class="btn primary" data-act="nav" data-id="shop">Order stock</button>`)
+  + (unpaid.length ? `<div class="tierbar" style="background:var(--warn-l);border-color:#f1d6b3"><b>${unpaid.length} order${unpaid.length > 1 ? 's' : ''} waiting for payment.</b><span class="muted">HQ releases stock after your payment is verified.</span><button class="btn xs accent" style="margin-left:auto" data-act="pay" data-id="${unpaid[0].id}">Pay ${esc(unpaid[0].number)}</button></div>` : '')
+  + `<div class="kpis">${kpi('Team sales this month', RM(teamM.reduce((s, x) => s + x.total, 0)), teamM.length + (teamM.length === 1 ? ' sale' : ' sales'))}
+    ${kpi('Stock on hand', units + ' units', 'Worth ' + RM(value) + ' at cost')}
+    ${kpi('Active agents', ags.length, `<a href="#" data-act="newUser" data-id="agent">Register an agent</a>`)}
+    ${kpi('Total purchases', RM(spent), mine.filter(o => o.status === 'completed').length + ' completed orders')}</div>
+  <div class="cols"><div class="card"><div class="card-h"><h3>Recent team sales</h3><button class="btn xs" data-act="nav" data-id="sales">All sales</button></div>${table(SALE_HEADS(true), saleRows(team.slice(0, 6), true), 'No sales recorded yet.')}</div>
+  <div class="card"><div class="card-h"><h3>My recent orders</h3></div>${table(['Order', 'Items', '>Total', 'Payment', 'Status', ''], orderRows(mine.slice(0, 5), false), 'No orders yet.')}</div></div>`;
+}
+function shopView(u){
+  const t = tierOf(u.tier), q = S.q.toLowerCase();
+  const ps = products().filter(p => p.active !== false && (!q || (p.name + ' ' + p.sku + ' ' + (p.category || '')).toLowerCase().includes(q)));
+  const cards = ps.map(p => {
+    const price = priceFor(p, u.tier), stock = p.hqStock || 0, n = S.cart[p.id] || 0;
+    return `<div class="card pcard"><div class="pc-top"><span class="sku">${esc(p.sku)}</span>${stockBadge(stock)}</div>
+      <h4>${esc(p.name)}</h4><div class="sm muted">${esc(p.category || '')}</div>
+      <div class="prices"><span class="yours">${RM(price)}</span><span class="rrp">${RM(p.rrp)}</span></div>
+      <div class="sm muted">You have ${inv(u.id)[p.id] || 0} in your inventory</div>
+      <div class="pc-foot">${stock > 0 ? `<div class="stepper"><button data-act="cartDec" data-id="${p.id}" aria-label="Less">−</button><input id="cq_${p.id}" inputmode="numeric" data-inp="cartQty" data-id="${p.id}" value="${n}"><button data-act="cartInc" data-id="${p.id}" aria-label="More">+</button></div>` : '<span class="sm muted">Not available to order</span>'}</div></div>`;
+  }).join('');
+  const lines = Object.entries(S.cart).filter(([pid, n]) => n > 0 && C.products[pid]);
+  const total = lines.reduce((s, [pid, n]) => s + priceFor(C.products[pid], u.tier) * n, 0);
+  const rrpTot = lines.reduce((s, [pid, n]) => s + (C.products[pid].rrp || 0) * n, 0);
+  return pageTop('Check stock & order', 'Live stock at HQ, priced for your tier.', `<input class="in search" id="sq" data-inp="q" placeholder="Search products" value="${esc(S.q)}">`)
+  + `<div class="tierbar">${badge('tier', t.name)}<span>You save <b>${t.discount}%</b> off RRP on every product.</span></div>
+  <div class="shop"><div class="pgrid">${cards || '<div class="card empty">No products available yet.</div>'}</div>
+  <div class="card cart"><div class="card-h"><h3>Your order</h3>${lines.length ? `<button class="btn xs ghost" data-act="cartClear">Clear</button>` : ''}</div><div class="card-b">
+    ${lines.length ? lines.map(([pid, n]) => { const p = C.products[pid]; const pr = priceFor(p, u.tier); return `<div class="cline"><div><b>${esc(p.name)}</b><div class="sm muted num">${n} × ${RM(pr)}</div></div><div class="num">${RM(pr * n)}</div></div>`; }).join('')
+      + `<div class="ctot"><span>Total</span><span class="num">${RM(total)}</span></div><div class="sm muted" style="margin-bottom:12px">You save ${RM(rrpTot - total)} vs RRP</div><button class="btn primary block" data-act="placeOrder">Place order &amp; pay</button>`
+      : '<div class="muted">Add products with the + buttons to start an order.</div>'}
+  </div></div></div>`;
+}
+function myOrders(u){
+  return pageTop('My orders', 'Stock is added to your inventory once HQ verifies your payment.', `<button class="btn primary" data-act="nav" data-id="shop">New order</button>`)
+    + `<div class="card">${table(['Order', 'Items', '>Total', 'Payment', 'Status', ''], orderRows(orders().filter(o => o.resellerId === u.id), false), 'You haven\'t placed any orders yet.')}</div>`;
+}
+function inventoryView(u){
+  const items = inv(u.id); let tc = 0, tr = 0, tu = 0;
+  const rows = Object.entries(items).filter(([pid, n]) => C.products[pid] && n > 0).map(([pid, n]) => {
+    const p = C.products[pid], cost = priceFor(p, u.tier); tc += cost * n; tr += p.rrp * n; tu += n;
+    const sold = sales().filter(s => s.resellerId === u.id && s.productId === pid && thisMonth(s.createdAt)).reduce((s, x) => s + x.qty, 0);
+    return `<tr><td><b>${esc(p.name)}</b><div class="sku">${esc(p.sku)}</div></td><td class="r num">${n}</td><td class="r num">${sold}</td><td class="r num">${RM(cost)}</td><td class="r num">${RM(p.rrp)}</td><td class="r num">${RM(cost * n)}</td><td class="r num">${RM((p.rrp - cost) * n)}</td></tr>`;
+  });
+  return pageTop('My inventory', 'Stock you hold. Your agents sell from this inventory.', `<button class="btn" data-act="newSale">Record a sale</button><button class="btn primary" data-act="nav" data-id="shop">Restock</button>`)
+  + `<div class="kpis">${kpi('Units on hand', tu)}${kpi('Value at current cost', RM(tc))}${kpi('Value at RRP', RM(tr), 'Potential margin ' + RM(tr - tc))}</div>
+  <div class="card">${table(['Product', '>On hand', '>Sold this month', '>Your cost', '>RRP', '>Value at cost', '>Potential margin'], rows, 'Your inventory is empty. Order stock from HQ to get started.')}</div>`;
+}
+function agentsView(u){
+  const isAdmin = u.role === 'admin';
+  const ags = users().filter(a => a.role === 'agent' && (isAdmin || a.parentId === u.id));
+  const rows = ags.map(a => {
+    const ss = sales().filter(s => s.sellerId === a.id), m = ss.filter(s => thisMonth(s.createdAt)).reduce((s, x) => s + x.total, 0);
+    const acts = (a.status === 'active' ? `<button class="btn xs" data-act="suspendUser" data-id="${a.id}">Suspend</button>` : `<button class="btn xs" data-act="approveUser" data-id="${a.id}">Activate</button>`) + `<button class="btn xs" data-act="editUser" data-id="${a.id}">Edit</button>`;
+    return `<tr><td><b>${esc(a.name)}</b><div class="sm muted">@${esc(a.username)} · ${esc(a.phone || '')}</div></td>${isAdmin ? `<td>${esc(uname(a.parentId))}</td>` : ''}
+      <td class="r num">${a.commission ?? settings().defaultCommission}%</td><td class="r num">${m ? RM(m) : '—'}</td>
+      <td class="r num">${RM(ss.reduce((s, x) => s + x.total, 0))}</td><td class="r num">${RM(ss.reduce((s, x) => s + (x.commission || 0), 0))}</td><td>${ustatus(a.status)}</td><td><div class="acts">${acts}</div></td></tr>`;
+  });
+  return pageTop(isAdmin ? 'Agents' : 'My agents', isAdmin ? 'Every agent across your reseller network.' : 'Agents sell from your inventory and earn commission on each sale.', isAdmin ? '' : `<button class="btn primary" data-act="newUser" data-id="agent">+ Register agent</button>`)
+    + `<div class="card">${table(['Agent', ...(isAdmin ? ['Reseller'] : []), '>Commission', '>Sales this month', '>Total sales', '>Commission earned', 'Status', ''], rows, isAdmin ? 'No agents registered yet.' : 'No agents yet. Register your first agent to grow your sales team.')}</div>`;
+}
+function salesView(u){
+  const r = u.role;
+  const ss = sales().filter(s => r === 'admin' || (r === 'reseller' && s.resellerId === u.id) || (r === 'agent' && s.sellerId === u.id));
+  const m = ss.filter(s => thisMonth(s.createdAt));
+  const showSeller = r !== 'agent';
+  return pageTop(r === 'agent' ? 'My sales' : 'Sales', r === 'admin' ? 'Sales made to end customers by resellers and agents.' : 'Each sale deducts stock from the reseller\'s inventory.', r === 'admin' ? '' : `<button class="btn primary" data-act="newSale">+ Record sale</button>`)
+  + `<div class="kpis">${kpi('This month', RM(m.reduce((s, x) => s + x.total, 0)), m.length + (m.length === 1 ? ' sale' : ' sales'))}${kpi('All time', RM(ss.reduce((s, x) => s + x.total, 0)), ss.reduce((s, x) => s + x.qty, 0) + ' units')}${kpi(r === 'agent' ? 'My commission' : 'Agent commission', RM(ss.reduce((s, x) => s + (x.commission || 0), 0)), 'This month ' + RM(m.reduce((s, x) => s + (x.commission || 0), 0)))}</div>
+  <div class="card">${table(SALE_HEADS(showSeller), saleRows(ss, showSeller), 'No sales recorded yet.')}</div>`;
+}
+
+/* ---------- agent ---------- */
+function agentDash(u){
+  const ss = sales().filter(s => s.sellerId === u.id), m = ss.filter(s => thisMonth(s.createdAt));
+  const rate = u.commission ?? settings().defaultCommission;
+  return pageTop('Hi, ' + (u.name || '').split(' ')[0], `Agent of ${esc(uname(u.parentId))} · ${rate}% commission`, `<button class="btn" data-act="nav" data-id="stock">Check stock</button><button class="btn primary" data-act="newSale">Record a sale</button>`)
+  + `<div class="kpis">${kpi('Sales this month', RM(m.reduce((s, x) => s + x.total, 0)), m.reduce((s, x) => s + x.qty, 0) + ' units')}${kpi('Commission this month', RM(m.reduce((s, x) => s + (x.commission || 0), 0)))}${kpi('Total commission', RM(ss.reduce((s, x) => s + (x.commission || 0), 0)), ss.length + (ss.length === 1 ? ' sale' : ' sales') + ' all time')}</div>
+  <div class="card"><div class="card-h"><h3>My recent sales</h3></div>${table(SALE_HEADS(false), saleRows(ss.slice(0, 8), false), 'No sales yet. Record your first sale when you close a customer.')}</div>`;
+}
+function agentStock(u){
+  const items = inv(u.parentId), rate = u.commission ?? settings().defaultCommission;
+  const rows = products().filter(p => p.active !== false).map(p => { const n = items[p.id] || 0; return `<tr><td><b>${esc(p.name)}</b><div class="sku">${esc(p.sku)} · ${esc(p.category || '')}</div></td><td class="r">${stockBadge(n)}</td><td class="r num">${RM(p.rrp)}</td><td class="r num">${RM(p.rrp * rate / 100)}</td><td><div class="acts">${n > 0 ? `<button class="btn xs primary" data-act="newSale" data-id="${p.id}">Sell</button>` : ''}</div></td></tr>`; });
+  return pageTop('Check stock', `Available from ${esc(uname(u.parentId))}'s inventory.`) + `<div class="card">${table(['Product', '>Available', '>Selling price (RRP)', '>Your commission / unit', ''], rows, 'No products listed yet.')}</div>`;
+}
+
+/* ---------- profile ---------- */
+function profileView(u){
+  return pageTop('Profile', '') + `<div class="cols"><div class="card"><div class="card-h"><h3>Your details</h3></div><div class="card-b"><form data-form="profile">
+    <div class="grid2"><label class="f"><span>Full name</span><input class="in" name="name" value="${esc(u.name)}" required></label>
+    ${u.role === 'reseller' ? `<label class="f"><span>Business name</span><input class="in" name="business" value="${esc(u.business || '')}"></label>` : '<div></div>'}
+    <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(u.phone || '')}"></label></div>
+    <p class="sm muted">Sign-in: <b>${esc(handle(u))}</b>${u.role === 'reseller' ? ' · Tier: ' + esc(tierOf(u.tier).name) : ''}</p>
+    <button class="btn primary">Save details</button></form></div></div>
+    <div class="card"><div class="card-h"><h3>Change password</h3></div><div class="card-b"><form data-form="password">
+      <label class="f"><span>Current password</span><input class="in" name="cur" type="password" required autocomplete="current-password"></label>
+      <label class="f"><span>New password</span><input class="in" name="pw" type="password" minlength="8" required autocomplete="new-password"></label>
+      <button class="btn">Update password</button></form></div></div></div>`;
+}
+
+/* ================= modals ================= */
+function openModal(html){ $('#modal-root').innerHTML = `<div class="bg" data-act="bgclose"><div class="modal" role="dialog">${html}</div></div>`; const f = $('#modal-root input:not([type=hidden]):not([disabled]),#modal-root select'); if (f) f.focus(); }
+function closeModal(){ $('#modal-root').innerHTML = ''; S.pending = null; }
+function confirmBox(title, msg, btn, fn, danger, withReason){
+  S.pending = fn;
+  openModal(`<h3>${esc(title)}</h3><p class="muted">${esc(msg)}</p>${withReason ? `<label class="f"><span>Reason (shown to reseller)</span><input class="in" id="cf_reason" placeholder="e.g. Payment not received"></label>` : ''}<div class="mfoot"><button class="btn ghost" data-act="close">Back</button><button class="btn ${danger ? 'danger' : 'primary'}" data-act="confirmYes">${esc(btn)}</button></div>`);
+}
+function productModal(id){
+  const p = id ? C.products[id] : {active:true};
+  openModal(`<h3>${id ? 'Edit product' : 'Add product'}</h3><form data-form="product"><input type="hidden" name="id" value="${esc(id || '')}">
+    <div class="grid2"><label class="f"><span>Product name</span><input class="in" name="name" value="${esc(p.name || '')}" required></label>
+    <label class="f"><span>SKU</span><input class="in" name="sku" value="${esc(p.sku || '')}" required></label>
+    <label class="f"><span>Category</span><input class="in" name="category" value="${esc(p.category || '')}" list="cats"></label>
+    <label class="f"><span>RRP (RM)</span><input class="in" name="rrp" type="number" min="0" step="0.01" value="${esc(p.rrp ?? '')}" required></label>
+    ${id ? '' : `<label class="f"><span>Opening HQ stock</span><input class="in" name="hqStock" type="number" min="0" value="0"></label>`}</div>
+    <datalist id="cats">${[...new Set(products().map(x => x.category).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <label class="chk"><input type="checkbox" name="active" ${p.active !== false ? 'checked' : ''}> Listed (visible to resellers)</label>
+    <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">Save product</button></div></form>`);
+}
+function restockModal(id){
+  const p = C.products[id];
+  openModal(`<h3>Restock ${esc(p.name)}</h3><p class="muted">Current HQ stock: <b class="num">${p.hqStock || 0}</b></p><form data-form="restock"><input type="hidden" name="id" value="${id}">
+    <label class="f"><span>Units received</span><input class="in" name="qty" type="number" min="1" required></label>
+    <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">Add to stock</button></div></form>`);
+}
+function userModal(role, id){
+  const u = id ? C.users[id] : {}; const isNew = !id;
+  role = role || u.role;
+  const viewer = me();
+  openModal(`<h3>${isNew ? (role === 'agent' ? 'Register agent' : 'Register reseller') : 'Edit ' + esc(u.name)}</h3><form data-form="user">
+    <input type="hidden" name="id" value="${esc(id || '')}"><input type="hidden" name="role" value="${role}">
+    <div class="grid2"><label class="f"><span>Full name</span><input class="in" name="name" value="${esc(u.name || '')}" required></label>
+    ${role === 'reseller' ? `<label class="f"><span>Business name</span><input class="in" name="business" value="${esc(u.business || '')}"></label>` : `<label class="f"><span>Commission (%)</span><input class="in" type="number" min="0" max="90" step="0.5" name="commission" value="${esc(u.commission ?? settings().defaultCommission)}" required></label>`}
+    <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(u.phone || '')}" ${role === 'reseller' ? 'required' : ''}></label>
+    ${role === 'reseller' ? `<label class="f"><span>State</span><input class="in" name="state" value="${esc(u.state || '')}"></label>
+      <label class="f"><span>Tier</span><select class="in" name="tier">${tiers().map(t => `<option value="${t.id}" ${t.id === tierOf(u.tier).id ? 'selected' : ''}>${esc(t.name)} (${t.discount}% off)</option>`).join('')}</select></label>` : ''}
+    ${isNew && role === 'agent' && viewer.role === 'admin' ? `<label class="f"><span>Reseller</span><select class="in" name="parent_id" required>${users().filter(x => x.role === 'reseller' && x.status === 'active').map(x => `<option value="${x.id}">${esc(x.business || x.name)}</option>`).join('')}</select></label>` : ''}
+    ${isNew
+      ? (role === 'agent'
+          ? `<label class="f"><span>Username (for sign-in)</span><input class="in" name="username" required pattern="[a-zA-Z0-9._\\-]{3,30}" placeholder="e.g. farid"></label>
+             <label class="f"><span>Email (optional)</span><input class="in" type="email" name="email"></label>`
+          : `<label class="f"><span>Email (for sign-in)</span><input class="in" type="email" name="email" required></label>`)
+      : `<label class="f"><span>Sign-in</span><input class="in" value="${esc(handle({...u, role}))}" disabled></label>`}
+    <label class="f"><span>${isNew ? 'Password' : 'Reset password'}</span><input class="in" type="password" name="password" minlength="8" ${isNew ? 'required' : 'placeholder="Leave blank to keep"'} autocomplete="new-password"></label></div>
+    ${isNew && role === 'agent' ? `<p class="sm muted">Give the agent their username and password. They sign in on this same page and sell from ${viewer.role === 'admin' ? 'their reseller\'s' : 'your'} inventory.</p>` : ''}
+    <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">${isNew ? 'Register' : 'Save'}</button></div></form>`);
+}
+function saleModal(pid){
+  const u = me(); const rid = u.role === 'agent' ? u.parentId : u.id; const items = inv(rid);
+  const avail = products().filter(p => (items[p.id] || 0) > 0);
+  if (!avail.length) { toast(u.role === 'agent' ? 'Your reseller has no stock right now.' : 'Your inventory is empty. Order stock from HQ first.', 'err'); return; }
+  const first = (pid && avail.find(p => p.id === pid)) || avail[0];
+  openModal(`<h3>Record a sale</h3><form data-form="sale">
+    <label class="f"><span>Product</span><select class="in" name="productId" data-chg="saleProduct">${avail.map(p => `<option value="${p.id}" ${p.id === first.id ? 'selected' : ''}>${esc(p.name)} — ${items[p.id]} available</option>`).join('')}</select></label>
+    <div class="grid2"><label class="f"><span>Quantity</span><input class="in" type="number" name="qty" min="1" value="1" required></label>
+    <label class="f"><span>Unit price (RM)</span><input class="in" type="number" name="price" id="salePrice" min="0" step="0.01" value="${first.rrp}" required></label>
+    <label class="f"><span>Customer name</span><input class="in" name="customer" placeholder="Optional"></label>
+    <label class="f"><span>Customer phone</span><input class="in" name="customerPhone" placeholder="Optional"></label></div>
+    ${u.role === 'agent' ? `<p class="sm muted">You earn ${u.commission ?? settings().defaultCommission}% commission on this sale.</p>` : ''}
+    <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">Record sale</button></div></form>`);
+}
+function qrSvg(seed){
+  let h = 0; for (const c of seed) h = (h * 131 + c.charCodeAt(0)) >>> 0;
+  const rnd = () => (h = (h * 1103515245 + 12345) >>> 0) / 4294967296;
+  const n = 21; let r = '';
+  const finder = (x, y) => `<rect x="${x}" y="${y}" width="7" height="7" fill="#13212d"/><rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="#13212d"/>`;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const inF = (x < 8 && y < 8) || (x > 12 && y < 8) || (x < 8 && y > 12); if (!inF && rnd() > .52) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="#13212d"/>`; }
+  return `<svg viewBox="-1 -1 23 23" width="112" height="112" style="background:#fff;border-radius:8px;border:1px solid var(--line)">${r}${finder(0, 0)}${finder(14, 0)}${finder(0, 14)}</svg>`;
+}
+function payModal(oid){
+  const o = C.orders[oid], st = settings();
+  if (!o) return;
+  const bankSet = st.bankName && st.accountNo;
+  openModal(`<h3>Pay for ${esc(o.number)}</h3><div class="paytotal"><span>Amount due</span><b>${RM(o.total)}</b></div>
+  <form data-form="pay"><input type="hidden" name="orderId" value="${oid}">
+    <div class="pm">
+      <label class="pmopt"><input type="radio" name="method" value="fpx" checked data-chg="pm"><span><b>FPX Online Banking</b><small>Pay from your Malaysian bank account</small></span></label>
+      <label class="pmopt"><input type="radio" name="method" value="duitnow" data-chg="pm"><span><b>DuitNow QR</b><small>Scan with any banking or e-wallet app</small></span></label>
+      <label class="pmopt"><input type="radio" name="method" value="transfer" data-chg="pm"><span><b>Bank transfer</b><small>IBG / Instant Transfer to HQ's account</small></span></label>
+    </div>
+    <div class="pmsec" data-pm="fpx"><label class="f"><span>Your bank</span><select class="in" name="bank">${['Maybank2u', 'CIMB Clicks', 'Public Bank', 'RHB Now', 'Hong Leong Connect', 'Bank Islam', 'AmBank', 'Bank Rakyat'].map(b => `<option>${b}</option>`).join('')}</select></label></div>
+    <div class="pmsec" data-pm="duitnow" hidden><div class="qr">${qrSvg(o.number)}<div class="sm"><b>${esc(st.accountName || st.companyName)}</b><br>Reference: <span class="num">${esc(o.number)}</span><br><span class="muted">Sample QR. Replace with your real DuitNow QR when you connect a gateway.</span></div></div></div>
+    <div class="pmsec" data-pm="transfer" hidden>${bankSet ? `<div class="bankbox"><div><span>Bank</span><b>${esc(st.bankName)}</b></div><div><span>Account no.</span><b class="num">${esc(st.accountNo)}</b></div><div><span>Account holder</span><b>${esc(st.accountName)}</b></div><div><span>Payment reference</span><b class="num">${esc(o.number)}</b></div></div>` : `<div class="bankbox">HQ hasn't added bank details yet. Please contact HQ for the account number.</div>`}</div>
+    <label class="f" id="refWrap" hidden><span>Transaction reference no.</span><input class="in" name="ref" placeholder="From your bank or e-wallet receipt"></label>
+    <div class="sim">Payments are simulated until a payment gateway is connected: no money moves through this page. HQ checks each payment before releasing stock.</div>
+    <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Pay later</button><button class="btn accent" id="payBtn">Pay ${RM(o.total)}</button></div></form>`);
+}
+function orderModal(id){
+  const o = C.orders[id]; if (!o) return;
+  openModal(`<h3>${esc(o.number)} ${ostatus(o.status)}</h3><p class="muted sm">${esc(uname(o.resellerId))} · placed ${fdate(o.createdAt)}</p>
+  <table class="items"><thead><tr><th>Product</th><th class="r">Qty</th><th class="r">Unit</th><th class="r">Subtotal</th></tr></thead><tbody>
+  ${(o.items || []).map(i => `<tr><td>${esc(i.name)}</td><td class="r num">${i.qty}</td><td class="r num">${RM(i.unitPrice)}</td><td class="r num">${RM(i.qty * i.unitPrice)}</td></tr>`).join('')}
+  <tr><td colspan="3"><b>Total</b></td><td class="r num"><b>${RM(o.total)}</b></td></tr></tbody></table>
+  ${o.payment ? `<div class="bankbox" style="margin-top:14px"><div><span>Method</span><b>${esc(PM[o.payment.method] || '')}${o.payment.bank ? ' · ' + esc(o.payment.bank) : ''}</b></div><div><span>Reference</span><b class="num">${esc(o.payment.ref || '')}</b></div><div><span>Paid</span><b>${fdate(o.payment.paidAt)}</b></div></div>` : ''}
+  ${o.rejectReason ? `<p class="sm" style="color:var(--err)">Rejected: ${esc(o.rejectReason)}</p>` : ''}
+  <div class="mfoot"><button class="btn" data-act="close">Close</button></div>`);
+}
+
+/* ================= toast ================= */
+function toast(msg, kind){ const el = document.createElement('div'); el.className = 't ' + (kind || ''); el.textContent = msg; $('#toast').appendChild(el); setTimeout(() => el.remove(), kind === 'err' ? 5500 : 3200); }
+
+/* ================= actions ================= */
+const setUserStatus = (id, status, msg) => {
+  const u = C.users[id];
+  return u.role === 'agent'
+    ? call(() => sb.rpc('update_agent', {p_agent:id, p_name:null, p_phone:null, p_commission:null, p_status:status}), msg)
+    : call(() => sb.from('profiles').update({status}).eq('id', id), msg);
+};
+const ACT = {
+  authTab: id => { S.authTab = id; render(); },
+  logout: () => signOut(),
+  nav: id => { S.view = id; S.q = ''; render(); window.scrollTo(0, 0); },
+  close: closeModal,
+  bgclose: (id, el, e) => { if (e.target === el) closeModal(); },
+  confirmYes: () => { const fn = S.pending; const reason = ($('#cf_reason') || {}).value; closeModal(); if (fn) fn(reason); },
+  ofilter: id => { S.ofilter = id; render(); },
+  newProduct: () => productModal(),
+  editProduct: id => productModal(id),
+  restock: id => restockModal(id),
+  newUser: role => { if (role === 'agent' && me().role === 'admin' && !users().some(x => x.role === 'reseller' && x.status === 'active')) { toast('Approve a reseller first.', 'err'); return; } userModal(role); },
+  editUser: id => userModal(null, id),
+  approveUser: id => setUserStatus(id, 'active', (C.users[id].name || 'Account') + ' is now active.'),
+  suspendUser: id => {
+    const u = C.users[id]; const pend = u.status === 'pending';
+    confirmBox(pend ? 'Decline application?' : 'Suspend ' + u.name + '?', pend ? 'The applicant won\'t be able to sign in.' : 'They won\'t be able to sign in until reactivated.' + (u.role === 'reseller' ? ' Their agents will also be blocked.' : ''), pend ? 'Decline' : 'Suspend',
+      () => setUserStatus(id, 'suspended', pend ? 'Application declined.' : 'Account suspended.'), true);
+  },
+  newSale: id => saleModal(id),
+  viewOrder: id => orderModal(id),
+  pay: id => payModal(id),
+  cancelOrder: id => confirmBox('Cancel ' + C.orders[id].number + '?', 'This order hasn\'t been paid. Cancelling removes it from HQ\'s queue.', 'Cancel order', () => call(() => sb.rpc('cancel_order', {p_order:id}), 'Order cancelled.'), true),
+  rejectOrder: id => confirmBox('Reject payment for ' + C.orders[id].number + '?', 'No stock will be released. The reseller will see the reason.', 'Reject', reason => call(() => sb.rpc('reject_order', {p_order:id, p_reason:reason || ''}), 'Order rejected.'), true, true),
+  approveOrder: async (id, el) => { if (el) el.disabled = true; const rn = uname(C.orders[id].resellerId); const r = await call(() => sb.rpc('approve_order', {p_order:id}), 'Payment verified. Stock released to ' + rn + '.'); if (r == null && el) el.disabled = false; },
+  cartInc: id => { const p = C.products[id]; S.cart[id] = Math.min((S.cart[id] || 0) + 1, p.hqStock || 0); render(); },
+  cartDec: id => { S.cart[id] = Math.max((S.cart[id] || 0) - 1, 0); render(); },
+  cartClear: () => { S.cart = {}; render(); },
+  placeOrder: async (id, el) => {
+    const lines = Object.entries(S.cart).filter(([pid, n]) => n > 0 && C.products[pid]);
+    if (!lines.length) return;
+    if (el) el.disabled = true;
+    const oid = await call(() => sb.rpc('place_order', {p_items: lines.map(([pid, n]) => ({product_id:pid, qty:n}))}));
+    if (el) el.disabled = false;
+    if (!oid) return;
+    S.cart = {}; S.view = 'myorders'; render(); payModal(oid);
+  },
+  addTier: () => openModal(`<h3>Add tier</h3><form data-form="tier"><div class="grid2"><label class="f"><span>Tier name</span><input class="in" name="name" required placeholder="e.g. Diamond"></label><label class="f"><span>Discount %</span><input class="in" name="discount" type="number" min="0" max="90" step="0.5" required></label></div><div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">Add tier</button></div></form>`),
+  delTier: id => {
+    if (users().some(u => u.role === 'reseller' && u.tier === id)) { toast('Move resellers off this tier before removing it.', 'err'); return; }
+    confirmBox('Remove ' + tierOf(id).name + ' tier?', 'Any unsaved changes on this page will be lost.', 'Remove', () => call(() => sb.from('tiers').delete().eq('id', id), 'Tier removed.'), true);
+  },
+};
+
+const CHG = {
+  tier: (id, el) => { const u = C.users[id]; call(() => sb.from('profiles').update({tier: el.value}).eq('id', id), `${u.business || u.name} moved to ${tierOf(el.value).name}.`); },
+  pm: (id, el) => { const m = el.value; document.querySelectorAll('.pmsec').forEach(s => s.hidden = s.dataset.pm !== m); $('#refWrap').hidden = m === 'fpx'; $('#refWrap input').required = m !== 'fpx'; },
+  saleProduct: (id, el) => { const p = C.products[el.value]; if (p) $('#salePrice').value = p.rrp; },
+};
+const INP = {
+  q: (id, el) => { S.q = el.value; render(); },
+  cartQty: (id, el) => { const p = C.products[id]; S.cart[id] = Math.min(int(el.value), p.hqStock || 0); render(); },
+};
+
+const ok = r => r == null ? false : undefined; // keep modal open when a call failed
+
+const FORMS = {
+  async setup(f){
+    try { await accounts({action:'setup_admin', company:f.company, name:f.name, email:f.email, password:f.password}); }
+    catch(e) { toast(errMsg(e), 'err'); await loadPublic().catch(() => {}); render(); return false; }
+    const {data, error} = await sb.auth.signInWithPassword({email: f.email.trim().toLowerCase(), password: f.password});
+    if (error) { toast(errMsg(error), 'err'); return false; }
+    await loadPublic(); await enter(data.user); render();
+    toast('HQ admin created. Add your products next.');
+  },
+  async login(f){
+    const id = f.id.trim().toLowerCase();
+    const email = id.includes('@') ? id : `${id}@${AGENT_DOMAIN}`;
+    const {data, error} = await sb.auth.signInWithPassword({email, password: f.password});
+    if (error) { toast(/invalid/i.test(error.message) ? 'Wrong email/username or password.' : errMsg(error), 'err'); return false; }
+    await enter(data.user); render();
+  },
+  async register(f){
+    try { await accounts({action:'apply_reseller', ...f}); }
+    catch(e) { toast(errMsg(e), 'err'); return false; }
+    S.authTab = 'login'; render(); toast('Application sent. HQ will review it, then you can sign in with your email.');
+  },
+  async product(f){
+    const row = {name: f.name.trim(), sku: f.sku.trim().toUpperCase(), category: f.category.trim() || null, rrp: r2(f.rrp), active: !!f.active};
+    if (f.id) return ok(await call(() => sb.from('products').update(row).eq('id', f.id), 'Product updated.'));
+    return ok(await call(() => sb.from('products').insert({...row, hq_stock: int(f.hqStock)}), 'Product added.'));
+  },
+  async restock(f){ return ok(await call(() => sb.rpc('restock', {p_product: f.id, p_qty: int(f.qty)}), v => `Added ${int(f.qty)} units. HQ stock is now ${v}.`)); },
+  async user(f){
+    const viewer = me(); const isNew = !f.id;
+    if (isNew) {
+      const body = f.role === 'agent'
+        ? {action:'create_agent', name:f.name, username:f.username, email:f.email, phone:f.phone, commission:Number(f.commission), password:f.password, parent_id:f.parent_id}
+        : {action:'create_reseller', name:f.name, business:f.business, email:f.email, phone:f.phone, state:f.state, tier:f.tier, password:f.password};
+      return ok(await call(() => accounts(body), f.role === 'agent' ? `${f.name} registered. They sign in with username "${f.username.trim().toLowerCase()}".` : `${f.name} registered and active.`));
+    }
+    let r = f.role === 'agent'
+      ? await call(() => sb.rpc('update_agent', {p_agent:f.id, p_name:f.name, p_phone:f.phone || '', p_commission:Number(f.commission), p_status:null}))
+      : await call(() => sb.from('profiles').update({name:f.name.trim(), business:(f.business || '').trim() || null, phone:(f.phone || '').trim(), state:(f.state || '').trim() || null, tier:f.tier}).eq('id', f.id));
+    if (r == null) return false;
+    if (f.password) { r = await call(() => accounts({action:'reset_password', user_id:f.id, password:f.password})); if (r == null) return false; }
+    toast(f.password ? 'Saved, and the password was reset.' : 'Saved.');
+  },
+  async sale(f){
+    const res = await call(() => sb.rpc('record_sale', {p_product:f.productId, p_qty:int(f.qty), p_price:r2(f.price), p_customer:f.customer, p_phone:f.customerPhone}));
+    if (res == null) return false;
+    const s = C.sales[res]; toast(s ? `Sale recorded: ${RM(s.total)}${s.commission ? ' · commission ' + RM(s.commission) : ''}` : 'Sale recorded.');
+  },
+  async pay(f, form){
+    if (f.method !== 'fpx' && !(f.ref || '').trim()) { toast('Enter the transaction reference from your receipt.', 'err'); return false; }
+    if (f.method === 'fpx') { const b = form.querySelector('#payBtn'); b.textContent = 'Connecting to ' + f.bank + '…'; await new Promise(r => setTimeout(r, 1200)); }
+    return ok(await call(() => sb.rpc('submit_payment', {p_order:f.orderId, p_method:f.method, p_bank:f.bank || null, p_ref:f.ref || null}), 'Payment submitted. HQ will verify it and release your stock.'));
+  },
+  async profile(f){ await call(() => sb.rpc('update_my_profile', {p_name:f.name, p_phone:f.phone || '', p_business:f.business || ''}), 'Details saved.'); return false; },
+  async password(f, form){
+    const {error} = await sb.auth.signInWithPassword({email: S.authEmail, password: f.cur});
+    if (error) { toast('Current password is wrong.', 'err'); return false; }
+    const r = await sb.auth.updateUser({password: f.pw});
+    if (r.error) { toast(errMsg(r.error), 'err'); return false; }
+    form.reset(); toast('Password updated.'); return false;
+  },
+  async settings(f){
+    const r = await call(async () => {
+      const a = await sb.from('settings').update({company_name:f.companyName.trim(), bank_name:f.bankName.trim(), account_no:f.accountNo.trim(), account_name:f.accountName.trim(), default_commission:Number(f.defaultCommission) || 0, low_stock:int(f.lowStock)}).eq('id', 1);
+      if (a.error) return a;
+      const ts = tiers().map((t, i) => ({id:t.id, name:(f['tn_' + i] || t.name).trim(), discount:Math.min(90, Math.max(0, Number(f['td_' + i]) || 0))}))
+        .sort((x, y) => y.discount - x.discount).map((t, i) => ({...t, sort:i + 1}));
+      return sb.from('tiers').upsert(ts);
+    }, 'Settings saved.');
+    return false;
+  },
+  async tier(f){
+    const name = f.name.trim(); let id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tier';
+    if (tiers().some(t => t.id === id)) id += '-' + Math.random().toString(36).slice(2, 5);
+    const ts = [...tiers(), {id, name, discount:Math.min(90, Math.max(0, Number(f.discount) || 0))}].sort((a, b) => b.discount - a.discount).map((t, i) => ({id:t.id, name:t.name, discount:t.discount, sort:i + 1}));
+    return ok(await call(() => sb.from('tiers').upsert(ts), name + ' tier added.'));
+  },
+};
+
+/* ================= events ================= */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const fn = ACT[el.dataset.act]; if (!fn) return;
+  if (el.dataset.act === 'bgclose') { fn(el.dataset.id, el, e); return; }
+  e.preventDefault(); fn(el.dataset.id, el, e);
+});
+document.addEventListener('change', e => { const el = e.target.closest('[data-chg]'); if (el && CHG[el.dataset.chg]) CHG[el.dataset.chg](el.dataset.id, el); });
+document.addEventListener('input', e => { const el = e.target.closest('[data-inp]'); if (el && INP[el.dataset.inp]) INP[el.dataset.inp](el.dataset.id, el); });
+document.addEventListener('submit', async e => {
+  const form = e.target.closest('[data-form]'); if (!form) return;
+  e.preventDefault();
+  const fd = new FormData(form); const f = {}; fd.forEach((v, k) => f[k] = typeof v === 'string' ? v : '');
+  const fn = FORMS[form.dataset.form]; if (!fn) return;
+  const btn = form.querySelector('button:not([type=button])'); const label = btn && btn.textContent;
+  if (btn) btn.disabled = true;
+  let res;
+  try { res = await fn(f, form); } catch(err) { console.error(err); toast(errMsg(err), 'err'); res = false; }
+  if (btn && document.body.contains(btn)) { btn.disabled = false; btn.textContent = label; }
+  if (res !== false && form.closest('#modal-root')) closeModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal-root').innerHTML) closeModal(); });
+
+boot();
+</script>
+</body>
+</html>
