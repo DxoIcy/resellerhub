@@ -211,6 +211,7 @@ const sales = () => list('sales').sort((a, b) => String(b.createdAt).localeCompa
 const inv = rid => (C.inventory[rid] && C.inventory[rid].items) || {};
 const me = () => (S.me && C.users[S.me]) ? {id:S.me, ...C.users[S.me]} : null;
 const uname = id => (C.users[id] && (C.users[id].business || C.users[id].name)) || '—';
+const isAdm = r => r === 'admin' || r === 'superadmin';
 const handle = u => u.role === 'agent' ? '@' + (u.username || '') : (u.email || '');
 const lowStock = () => Number(settings().lowStock) || 0;
 
@@ -372,6 +373,7 @@ function authView(){
 /* ---------- shell ---------- */
 const NAV = {
   admin:[['dashboard','Dashboard'],['orders','Orders & payments'],['products','Products & stock'],['resellers','Resellers'],['agents','Agents'],['sales','Sales'],['settings','Settings'],['profile','Profile']],
+  superadmin:[['dashboard','Dashboard'],['orders','Orders & payments'],['products','Products & stock'],['resellers','Resellers'],['agents','Agents'],['sales','Sales'],['admins','HQ admins'],['settings','Settings'],['profile','Profile']],
   reseller:[['dashboard','Dashboard'],['shop','Check stock & order'],['myorders','My orders'],['inventory','My inventory'],['agents','My agents'],['sales','Sales'],['profile','Profile']],
   agent:[['dashboard','Dashboard'],['stock','Check stock'],['sales','My sales'],['profile','Profile']],
 };
@@ -379,12 +381,12 @@ function shell(u){
   const nav = NAV[u.role] || [];
   if (!nav.some(n => n[0] === S.view)) S.view = 'dashboard';
   const counts = {};
-  if (u.role === 'admin') {
+  if (isAdm(u.role)) {
     counts.orders = orders().filter(o => o.status === 'payment_submitted').length;
     counts.resellers = users().filter(x => x.role === 'reseller' && x.status === 'pending').length;
   }
   if (u.role === 'reseller') counts.myorders = orders().filter(o => o.resellerId === u.id && o.status === 'awaiting_payment').length;
-  const sub = u.role === 'reseller' ? badge('tier', tierOf(u.tier).name + ' reseller') : u.role === 'agent' ? `<span class="sm">Agent of ${esc(uname(u.parentId))}</span>` : badge('role', 'HQ admin');
+  const sub = u.role === 'reseller' ? badge('tier', tierOf(u.tier).name + ' reseller') : u.role === 'agent' ? `<span class="sm">Agent of ${esc(uname(u.parentId))}</span>` : badge('role', u.role === 'superadmin' ? 'System admin' : 'HQ admin');
   return `<div class="shell"><aside class="side">
     <div class="logo"><i>R</i>${esc(settings().companyName)}</div>
     <div class="who"><div><b>${esc(u.name)}</b>${sub}</div><button class="btn xs ghost" style="color:#c9d2da;border-color:rgba(255,255,255,.15);margin-top:8px" data-act="logout">Sign out</button></div>
@@ -393,13 +395,14 @@ function shell(u){
 }
 function view(u){
   const v = S.view, r = u.role;
-  if (v === 'dashboard') return r === 'admin' ? adminDash(u) : r === 'reseller' ? resellerDash(u) : agentDash(u);
+  if (v === 'dashboard') return isAdm(r) ? adminDash(u) : r === 'reseller' ? resellerDash(u) : agentDash(u);
   if (v === 'orders') return adminOrders();
   if (v === 'products') return adminProducts();
   if (v === 'resellers') return adminResellers();
   if (v === 'agents') return agentsView(u);
   if (v === 'sales') return salesView(u);
   if (v === 'settings') return settingsView();
+  if (v === 'admins') return adminsView(u);
   if (v === 'shop') return shopView(u);
   if (v === 'myorders') return myOrders(u);
   if (v === 'inventory') return inventoryView(u);
@@ -504,6 +507,28 @@ function settingsView(){
     </div></div><button class="btn primary">Save settings</button></div></form>`;
 }
 
+/* ---------- system admin ---------- */
+function adminsView(u){
+  const rows = users().filter(x => isAdm(x.role)).sort((a, b) => (a.role === 'superadmin' ? -1 : 0) - (b.role === 'superadmin' ? -1 : 0)).map(a => {
+    const self = a.id === u.id, sup = a.role === 'superadmin';
+    const acts = (sup || self) ? '' : (a.status === 'active' ? `<button class="btn xs" data-act="suspendUser" data-id="${a.id}">Suspend</button>` : `<button class="btn xs" data-act="approveUser" data-id="${a.id}">Reactivate</button>`) + `<button class="btn xs" data-act="editAdmin" data-id="${a.id}">Edit</button>`;
+    return `<tr><td><b>${esc(a.name)}</b>${self ? ' <span class="sm muted">(you)</span>' : ''}<div class="sm muted">${esc(a.email || '')}</div></td><td>${esc(a.phone || '')}</td>
+      <td>${sup ? badge('tier', 'System admin') : badge('info', 'HQ admin')}</td><td>${ustatus(a.status)}</td><td class="sm muted">${fday(a.createdAt)}</td><td><div class="acts">${acts}</div></td></tr>`;
+  });
+  return pageTop('HQ admins', 'Only the system admin can add, suspend or reset HQ admin accounts. HQ admins run day-to-day operations but can\'t change admin accounts.', `<button class="btn primary" data-act="newAdmin">+ Add HQ admin</button>`)
+    + `<div class="card">${table(['Name', 'Phone', 'Role', 'Status', 'Added', ''], rows, 'No admins yet.')}</div>`;
+}
+function adminModal(id){
+  const a = id ? C.users[id] : {};
+  openModal(`<h3>${id ? 'Edit ' + esc(a.name) : 'Add HQ admin'}</h3><form data-form="admin"><input type="hidden" name="id" value="${esc(id || '')}">
+    <div class="grid2"><label class="f"><span>Full name</span><input class="in" name="name" value="${esc(a.name || '')}" required></label>
+    <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(a.phone || '')}"></label>
+    ${id ? `<label class="f"><span>Sign-in</span><input class="in" value="${esc(a.email || '')}" disabled></label>` : `<label class="f"><span>Email (for sign-in)</span><input class="in" type="email" name="email" required></label>`}
+    <label class="f"><span>${id ? 'Reset password' : 'Password'}</span><input class="in" type="password" name="password" minlength="8" ${id ? 'placeholder="Leave blank to keep"' : 'required'} autocomplete="new-password"></label></div>
+    <p class="sm muted">HQ admins can manage products, stock, orders, resellers, agents and settings.</p>
+    <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">${id ? 'Save' : 'Add admin'}</button></div></form>`);
+}
+
 /* ---------- reseller ---------- */
 function resellerDash(u){
   const t = tierOf(u.tier), mine = orders().filter(o => o.resellerId === u.id);
@@ -562,7 +587,7 @@ function inventoryView(u){
   <div class="card">${table(['Product', '>On hand', '>Sold this month', '>Your cost', '>RRP', '>Value at cost', '>Potential margin'], rows, 'Your inventory is empty. Order stock from HQ to get started.')}</div>`;
 }
 function agentsView(u){
-  const isAdmin = u.role === 'admin';
+  const isAdmin = isAdm(u.role);
   const ags = users().filter(a => a.role === 'agent' && (isAdmin || a.parentId === u.id));
   const rows = ags.map(a => {
     const ss = sales().filter(s => s.sellerId === a.id), m = ss.filter(s => thisMonth(s.createdAt)).reduce((s, x) => s + x.total, 0);
@@ -576,10 +601,10 @@ function agentsView(u){
 }
 function salesView(u){
   const r = u.role;
-  const ss = sales().filter(s => r === 'admin' || (r === 'reseller' && s.resellerId === u.id) || (r === 'agent' && s.sellerId === u.id));
+  const ss = sales().filter(s => isAdm(r) || (r === 'reseller' && s.resellerId === u.id) || (r === 'agent' && s.sellerId === u.id));
   const m = ss.filter(s => thisMonth(s.createdAt));
   const showSeller = r !== 'agent';
-  return pageTop(r === 'agent' ? 'My sales' : 'Sales', r === 'admin' ? 'Sales made to end customers by resellers and agents.' : 'Each sale deducts stock from the reseller\'s inventory.', r === 'admin' ? '' : `<button class="btn primary" data-act="newSale">+ Record sale</button>`)
+  return pageTop(r === 'agent' ? 'My sales' : 'Sales', isAdm(r) ? 'Sales made to end customers by resellers and agents.' : 'Each sale deducts stock from the reseller\'s inventory.', isAdm(r) ? '' : `<button class="btn primary" data-act="newSale">+ Record sale</button>`)
   + `<div class="kpis">${kpi('This month', RM(m.reduce((s, x) => s + x.total, 0)), m.length + (m.length === 1 ? ' sale' : ' sales'))}${kpi('All time', RM(ss.reduce((s, x) => s + x.total, 0)), ss.reduce((s, x) => s + x.qty, 0) + ' units')}${kpi(r === 'agent' ? 'My commission' : 'Agent commission', RM(ss.reduce((s, x) => s + (x.commission || 0), 0)), 'This month ' + RM(m.reduce((s, x) => s + (x.commission || 0), 0)))}</div>
   <div class="card">${table(SALE_HEADS(showSeller), saleRows(ss, showSeller), 'No sales recorded yet.')}</div>`;
 }
@@ -648,7 +673,7 @@ function userModal(role, id){
     <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(u.phone || '')}" ${role === 'reseller' ? 'required' : ''}></label>
     ${role === 'reseller' ? `<label class="f"><span>State</span><input class="in" name="state" value="${esc(u.state || '')}"></label>
       <label class="f"><span>Tier</span><select class="in" name="tier">${tiers().map(t => `<option value="${t.id}" ${t.id === tierOf(u.tier).id ? 'selected' : ''}>${esc(t.name)} (${t.discount}% off)</option>`).join('')}</select></label>` : ''}
-    ${isNew && role === 'agent' && viewer.role === 'admin' ? `<label class="f"><span>Reseller</span><select class="in" name="parent_id" required>${users().filter(x => x.role === 'reseller' && x.status === 'active').map(x => `<option value="${x.id}">${esc(x.business || x.name)}</option>`).join('')}</select></label>` : ''}
+    ${isNew && role === 'agent' && isAdm(viewer.role) ? `<label class="f"><span>Reseller</span><select class="in" name="parent_id" required>${users().filter(x => x.role === 'reseller' && x.status === 'active').map(x => `<option value="${x.id}">${esc(x.business || x.name)}</option>`).join('')}</select></label>` : ''}
     ${isNew
       ? (role === 'agent'
           ? `<label class="f"><span>Username (for sign-in)</span><input class="in" name="username" required pattern="[a-zA-Z0-9._\\-]{3,30}" placeholder="e.g. farid"></label>
@@ -656,7 +681,7 @@ function userModal(role, id){
           : `<label class="f"><span>Email (for sign-in)</span><input class="in" type="email" name="email" required></label>`)
       : `<label class="f"><span>Sign-in</span><input class="in" value="${esc(handle({...u, role}))}" disabled></label>`}
     <label class="f"><span>${isNew ? 'Password' : 'Reset password'}</span><input class="in" type="password" name="password" minlength="8" ${isNew ? 'required' : 'placeholder="Leave blank to keep"'} autocomplete="new-password"></label></div>
-    ${isNew && role === 'agent' ? `<p class="sm muted">Give the agent their username and password. They sign in on this same page and sell from ${viewer.role === 'admin' ? 'their reseller\'s' : 'your'} inventory.</p>` : ''}
+    ${isNew && role === 'agent' ? `<p class="sm muted">Give the agent their username and password. They sign in on this same page and sell from ${isAdm(viewer.role) ? 'their reseller\'s' : 'your'} inventory.</p>` : ''}
     <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">${isNew ? 'Register' : 'Save'}</button></div></form>`);
 }
 function saleModal(pid){
@@ -731,8 +756,10 @@ const ACT = {
   newProduct: () => productModal(),
   editProduct: id => productModal(id),
   restock: id => restockModal(id),
-  newUser: role => { if (role === 'agent' && me().role === 'admin' && !users().some(x => x.role === 'reseller' && x.status === 'active')) { toast('Approve a reseller first.', 'err'); return; } userModal(role); },
+  newUser: role => { if (role === 'agent' && isAdm(me().role) && !users().some(x => x.role === 'reseller' && x.status === 'active')) { toast('Approve a reseller first.', 'err'); return; } userModal(role); },
   editUser: id => userModal(null, id),
+  newAdmin: () => adminModal(),
+  editAdmin: id => adminModal(id),
   approveUser: id => setUserStatus(id, 'active', (C.users[id].name || 'Account') + ' is now active.'),
   suspendUser: id => {
     const u = C.users[id]; const pend = u.status === 'pending';
@@ -814,6 +841,13 @@ const FORMS = {
     let r = f.role === 'agent'
       ? await call(() => sb.rpc('update_agent', {p_agent:f.id, p_name:f.name, p_phone:f.phone || '', p_commission:Number(f.commission), p_status:null}))
       : await call(() => sb.from('profiles').update({name:f.name.trim(), business:(f.business || '').trim() || null, phone:(f.phone || '').trim(), state:(f.state || '').trim() || null, tier:f.tier}).eq('id', f.id));
+    if (r == null) return false;
+    if (f.password) { r = await call(() => accounts({action:'reset_password', user_id:f.id, password:f.password})); if (r == null) return false; }
+    toast(f.password ? 'Saved, and the password was reset.' : 'Saved.');
+  },
+  async admin(f){
+    if (!f.id) return ok(await call(() => accounts({action:'create_admin', name:f.name, phone:f.phone, email:f.email, password:f.password}), `${f.name} added as HQ admin.`));
+    let r = await call(() => sb.from('profiles').update({name:f.name.trim(), phone:(f.phone || '').trim()}).eq('id', f.id));
     if (r == null) return false;
     if (f.password) { r = await call(() => accounts({action:'reset_password', user_id:f.id, password:f.password})); if (r == null) return false; }
     toast(f.password ? 'Saved, and the password was reset.' : 'Saved.');
