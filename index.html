@@ -457,7 +457,11 @@ function saleRows(list, showSeller){
 const SALE_HEADS = seller => ['Date', 'Product / customer', ...(seller ? ['Sold by'] : []), '>Qty', '>Unit price', '>Total', '>Commission'];
 
 /* ---------- admin ---------- */
-function adminDash(){
+function dashTitle(u){
+  if (u.role === 'superadmin') return 'Super Admin Dashboard';
+  return u.business ? u.business + ' Dashboard' : 'HQ Dashboard';
+}
+function adminDash(u){
   const os = orders(), done = os.filter(o => o.status === 'completed');
   const rev = done.reduce((s, o) => s + o.total, 0), revM = done.filter(o => thisMonth(o.createdAt)).reduce((s, o) => s + o.total, 0);
   const verify = os.filter(o => o.status === 'payment_submitted');
@@ -467,7 +471,7 @@ function adminDash(){
   const field = sales().filter(s => thisMonth(s.createdAt)).reduce((s, x) => s + x.total, 0);
   const topR = rs.filter(r => r.status === 'active').map(r => ({r, t: done.filter(o => o.resellerId === r.id).reduce((s, o) => s + o.total, 0)})).sort((a, b) => b.t - a.t).slice(0, 5);
   const firstRun = !products().length ? `<div class="tierbar"><b>Welcome!</b><span>Start by adding your products, then check your bank details in Settings.</span><button class="btn xs primary" style="margin-left:auto" data-act="nav" data-id="products">Add products</button></div>` : '';
-  return pageTop('HQ dashboard', fday(now())) + firstRun + `<div class="kpis">
+  return pageTop(dashTitle(u), fday(now())) + firstRun + `<div class="kpis">
     ${kpi('Revenue this month', RM(revM), 'All time ' + RM(rev))}
     ${kpi('Payments to verify', verify.length, verify.length ? RM(verify.reduce((s, o) => s + o.total, 0)) + ' waiting' : 'All clear')}
     ${kpi('Active resellers', rs.filter(r => r.status === 'active').length, pend.length ? pend.length + ' awaiting approval' : 'No pending applications')}
