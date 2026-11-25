@@ -229,15 +229,16 @@ async function loadAll(){
   const bad = res.find(r => r.error); if (bad) throw bad.error;
   const [st, ti, pr, pf, iv, od, sa] = res.map(r => r.data);
   clearData();
-  if (st) C.config.settings = { companyName: st.company_name, bankName: st.bank_name, accountName: st.account_name, accountNo: st.account_no, defaultCommission: Number(st.default_commission), lowStock: st.low_stock };
+  if (st) C.config.settings = { companyName: st.company_name, bankName: st.bank_name, accountName: st.account_name, accountNo: st.account_no, defaultCommission: Number(st.default_commission), lowStock: st.low_stock, address: st.address || '', postcode: st.postcode || '', city: st.city || '', state: st.state || '', phone: st.phone || '' };
   C.config.tiers = (ti || []).map(t => ({id:t.id, name:t.name, discount:Number(t.discount), sort:t.sort}));
-  (pr || []).forEach(p => C.products[p.id] = {sku:p.sku, name:p.name, category:p.category, rrp:Number(p.rrp), hqStock:p.hq_stock, active:p.active, createdAt:p.created_at});
-  (pf || []).forEach(u => C.users[u.id] = {role:u.role, status:u.status, name:u.name, business:u.business, phone:u.phone, email:u.email, state:u.state, companyReg:u.company_reg, username:u.username, tier:u.tier, parentId:u.parent_id, commission: u.commission == null ? null : Number(u.commission), createdAt:u.created_at});
+  (pr || []).forEach(p => C.products[p.id] = {sku:p.sku, name:p.name, category:p.category, rrp:Number(p.rrp), hqStock:p.hq_stock, active:p.active, weightKg: p.weight_kg == null ? null : Number(p.weight_kg), createdAt:p.created_at});
+  (pf || []).forEach(u => C.users[u.id] = {role:u.role, status:u.status, name:u.name, business:u.business, phone:u.phone, email:u.email, state:u.state, address:u.address, postcode:u.postcode, city:u.city, companyReg:u.company_reg, username:u.username, tier:u.tier, parentId:u.parent_id, commission: u.commission == null ? null : Number(u.commission), createdAt:u.created_at});
   (iv || []).forEach(i => { (C.inventory[i.reseller_id] = C.inventory[i.reseller_id] || {items:{}}).items[i.product_id] = i.qty; });
   (od || []).forEach(o => C.orders[o.id] = {number:o.number, resellerId:o.reseller_id, total:Number(o.total), status:o.status, createdAt:o.created_at, rejectReason:o.reject_reason,
     items:(o.order_items || []).map(i => ({productId:i.product_id, name:i.name, qty:i.qty, unitPrice:Number(i.unit_price)})),
+    awbNo:o.awb_no, shipName:o.ship_name, shipPhone:o.ship_phone, shipAddress:o.ship_address, shipPostcode:o.ship_postcode, shipCity:o.ship_city, shipState:o.ship_state,
     payment: o.payment_method ? {method:o.payment_method, bank:o.payment_bank, ref:o.payment_ref, paidAt:o.paid_at} : null});
-  (sa || []).forEach(s => C.sales[s.id] = {sellerId:s.seller_id, sellerRole:s.seller_role, resellerId:s.reseller_id, productId:s.product_id, productName:s.product_name, qty:s.qty, price:Number(s.price), total:Number(s.total), rate:Number(s.rate), commission:Number(s.commission), customer:s.customer, customerPhone:s.customer_phone, createdAt:s.created_at});
+  (sa || []).forEach(s => C.sales[s.id] = {sellerId:s.seller_id, sellerRole:s.seller_role, resellerId:s.reseller_id, productId:s.product_id, productName:s.product_name, qty:s.qty, price:Number(s.price), total:Number(s.total), rate:Number(s.rate), commission:Number(s.commission), customer:s.customer, customerPhone:s.customer_phone, delivery:s.delivery, cod:s.cod, awbNo:s.awb_no, shipAddress:s.ship_address, shipPostcode:s.ship_postcode, shipCity:s.ship_city, shipState:s.ship_state, createdAt:s.created_at});
 }
 async function refresh(){
   try { await loadAll(); } catch(e) { return; }
@@ -330,6 +331,16 @@ function table(heads, rows, empty){
   if (!rows.length) return `<div class="empty">${esc(empty || 'Nothing here yet.')}</div>`;
   return `<div class="tw"><table><thead><tr>${heads.map(h => { const r = h.startsWith('>'); return `<th class="${r ? 'r' : ''}">${esc(r ? h.slice(1) : h)}</th>`; }).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
+const MY_STATES = ['Johor','Kedah','Kelantan','Melaka','Negeri Sembilan','Pahang','Perak','Perlis','Pulau Pinang','Sabah','Sarawak','Selangor','Terengganu','W.P. Kuala Lumpur','W.P. Labuan','W.P. Putrajaya'];
+function addressFields(a, req){
+  a = a || {}; const r = req ? 'required' : '';
+  return `<label class="f" style="grid-column:1/-1"><span>Address</span><input class="in" name="address" value="${esc(a.address || '')}" placeholder="No., street, area" ${r}></label>
+    <label class="f"><span>Postcode</span><input class="in" name="postcode" value="${esc(a.postcode || '')}" inputmode="numeric" maxlength="10" ${r}></label>
+    <label class="f"><span>City</span><input class="in" name="city" value="${esc(a.city || '')}"></label>
+    <label class="f"><span>State</span><select class="in" name="state"><option value="">—</option>${MY_STATES.map(x => `<option ${x === a.state ? 'selected' : ''}>${x}</option>`).join('')}${a.state && !MY_STATES.includes(a.state) ? `<option selected>${esc(a.state)}</option>` : ''}</select></label>`;
+}
+const addrOf = f => ({address:(f.address || '').trim() || null, postcode:(f.postcode || '').trim() || null, city:(f.city || '').trim() || null, state:(f.state || '').trim() || null});
+const hasAddress = u => !!((u.address || '').trim() && (u.postcode || '').trim());
 function pageTop(title, sub, actions){ return `<div class="top"><div><h2>${esc(title)}</h2>${sub ? `<div class="muted">${sub}</div>` : ''}</div><div class="acts">${actions || ''}</div></div>`; }
 
 /* ---------- setup & auth ---------- */
@@ -438,7 +449,7 @@ function view(u){
 function orderRows(list, isAdmin){
   return list.map(o => {
     const units = (o.items || []).reduce((s, i) => s + i.qty, 0);
-    let acts = `<button class="btn xs" data-act="viewOrder" data-id="${o.id}">View</button>`;
+    let acts = `<button class="btn xs" data-act="viewOrder" data-id="${o.id}">View</button>` + (o.awbNo && !['cancelled', 'rejected'].includes(o.status) ? `<button class="btn xs" data-act="awbOrder" data-id="${o.id}">AWB</button>` : '');
     if (isAdmin && o.status === 'payment_submitted') acts += `<button class="btn xs primary" data-act="approveOrder" data-id="${o.id}">Verify &amp; release</button><button class="btn xs" data-act="rejectOrder" data-id="${o.id}">Reject</button>`;
     if (!isAdmin && o.status === 'awaiting_payment') acts += `<button class="btn xs accent" data-act="pay" data-id="${o.id}">Pay now</button><button class="btn xs" data-act="cancelOrder" data-id="${o.id}">Cancel</button>`;
     return `<tr><td><b class="num">${esc(o.number)}</b><div class="sm muted">${fdate(o.createdAt)}</div></td>
@@ -452,9 +463,11 @@ function orderRows(list, isAdmin){
 function saleRows(list, showSeller){
   return list.map(s => `<tr><td>${fday(s.createdAt)}</td><td><b>${esc(s.productName)}</b><div class="sm muted">${esc(s.customer || '')}${s.customerPhone ? ' · ' + esc(s.customerPhone) : ''}</div></td>
     ${showSeller ? `<td>${esc((C.users[s.sellerId] || {}).name || '—')}<div class="sm muted">${s.sellerRole === 'agent' ? 'Agent' : 'Reseller'} · ${esc(uname(s.resellerId))}</div></td>` : ''}
-    <td class="r num">${s.qty}</td><td class="r num">${RM(s.price)}</td><td class="r num"><b>${RM(s.total)}</b></td><td class="r num">${s.commission ? RM(s.commission) : '—'}</td></tr>`);
+    <td class="r num">${s.qty}</td><td class="r num">${RM(s.price)}</td><td class="r num"><b>${RM(s.total)}</b></td><td class="r num">${s.commission ? RM(s.commission) : '—'}</td>
+    <td>${s.delivery === 'courier' ? `${s.cod ? badge('warn', 'COD') : badge('info', 'Courier')}<div class="sm muted num">${esc(s.awbNo || '')}</div>` : '<span class="sm muted">Walk-in</span>'}</td>
+    <td><div class="acts">${s.awbNo ? `<button class="btn xs" data-act="awbSale" data-id="${s.id}">AWB</button>` : ''}</div></td></tr>`);
 }
-const SALE_HEADS = seller => ['Date', 'Product / customer', ...(seller ? ['Sold by'] : []), '>Qty', '>Unit price', '>Total', '>Commission'];
+const SALE_HEADS = seller => ['Date', 'Product / customer', ...(seller ? ['Sold by'] : []), '>Qty', '>Unit price', '>Total', '>Commission', 'Delivery', ''];
 
 /* ---------- admin ---------- */
 function dashTitle(u){
@@ -525,6 +538,8 @@ function settingsView(){
       <div class="grid2"><label class="f"><span>Bank</span><input class="in" name="bankName" value="${esc(st.bankName)}" placeholder="e.g. Maybank"></label>
       <label class="f"><span>Account number</span><input class="in" name="accountNo" value="${esc(st.accountNo)}"></label></div>
       <label class="f"><span>Account holder</span><input class="in" name="accountName" value="${esc(st.accountName)}"></label>
+      <h4 style="margin:6px 0 10px">HQ sender address (printed on airway bills)</h4>
+      <div class="grid2"><label class="f"><span>HQ phone</span><input class="in" name="phone" value="${esc(st.phone)}"></label><div></div>${addressFields(st)}</div>
       <div class="grid2"><label class="f"><span>Default agent commission (%)</span><input class="in" type="number" min="0" max="90" step="0.5" name="defaultCommission" value="${esc(st.defaultCommission)}"></label>
       <label class="f"><span>Low-stock alert at (units)</span><input class="in" type="number" min="0" name="lowStock" value="${esc(st.lowStock)}"></label></div>
     </div></div></div>
@@ -600,7 +615,7 @@ function shopView(u){
   <div class="shop"><div class="pgrid">${cards || '<div class="card empty">No products available yet.</div>'}</div>
   <div class="card cart"><div class="card-h"><h3>Your order</h3>${lines.length ? `<button class="btn xs ghost" data-act="cartClear">Clear</button>` : ''}</div><div class="card-b">
     ${lines.length ? lines.map(([pid, n]) => { const p = C.products[pid]; const pr = priceFor(p, u.tier); return `<div class="cline"><div><b>${esc(p.name)}</b><div class="sm muted num">${n} × ${RM(pr)}</div></div><div class="num">${RM(pr * n)}</div></div>`; }).join('')
-      + `<div class="ctot"><span>Total</span><span class="num">${RM(total)}</span></div><div class="sm muted" style="margin-bottom:12px">You save ${RM(rrpTot - total)} vs RRP</div><button class="btn primary block" data-act="placeOrder">Place order &amp; pay</button>`
+      + `<div class="ctot"><span>Total</span><span class="num">${RM(total)}</span></div><div class="sm muted" style="margin-bottom:12px">You save ${RM(rrpTot - total)} vs RRP</div>${hasAddress(u) ? `<div class="bankbox" style="font-size:12.5px"><b>Ship to</b><br>${esc(u.business || u.name)} · ${esc(u.phone || '')}<br>${esc(u.address)}, ${esc(u.postcode)} ${esc(u.city || '')}${u.state ? ', ' + esc(u.state) : ''} <a href="#" data-act="nav" data-id="profile">Change</a></div><button class="btn primary block" data-act="placeOrder">Place order &amp; pay</button>` : `<div class="bankbox" style="background:var(--warn-l)">Add your delivery address before ordering.</div><button class="btn primary block" data-act="nav" data-id="profile">Add delivery address</button>`}`
       : '<div class="muted">Add products with the + buttons to start an order.</div>'}
   </div></div></div>`;
 }
@@ -661,7 +676,8 @@ function profileView(u){
   return pageTop('Profile', '') + `<div class="cols"><div class="card"><div class="card-h"><h3>Your details</h3></div><div class="card-b"><form data-form="profile">
     <div class="grid2"><label class="f"><span>Full name</span><input class="in" name="name" value="${esc(u.name)}" required></label>
     ${u.role === 'reseller' ? `<label class="f"><span>Business name</span><input class="in" name="business" value="${esc(u.business || '')}"></label>` : '<div></div>'}
-    <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(u.phone || '')}"></label></div>
+    <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(u.phone || '')}"></label>
+    ${u.role === 'reseller' ? `<div></div><h4 style="grid-column:1/-1;margin:4px 0 8px">Delivery address</h4>${addressFields(u)}<p class="sm muted" style="grid-column:1/-1;margin-top:0">HQ ships your orders here. It's also the sender address on your customers' airway bills.</p>` : ''}</div>
     <p class="sm muted">Sign-in: <b>${esc(handle(u))}</b>${u.role === 'reseller' ? ' · Tier: ' + esc(tierOf(u.tier).name) : ''}</p>
     <button class="btn primary">Save details</button></form></div></div>
     <div class="card"><div class="card-h"><h3>Change password</h3></div><div class="card-b"><form data-form="password">
@@ -684,6 +700,7 @@ function productModal(id){
     <label class="f"><span>SKU</span><input class="in" name="sku" value="${esc(p.sku || '')}" required></label>
     <label class="f"><span>Category</span><input class="in" name="category" value="${esc(p.category || '')}" list="cats"></label>
     <label class="f"><span>RRP (RM)</span><input class="in" name="rrp" type="number" min="0" step="0.01" value="${esc(p.rrp ?? '')}" required></label>
+    <label class="f"><span>Weight per unit (kg)</span><input class="in" name="weightKg" type="number" min="0" step="0.001" value="${esc(p.weightKg ?? '')}" placeholder="For airway bills"></label>
     ${id ? '' : `<label class="f"><span>Opening HQ stock</span><input class="in" name="hqStock" type="number" min="0" value="0"></label>`}</div>
     <datalist id="cats">${[...new Set(products().map(x => x.category).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
     <label class="chk"><input type="checkbox" name="active" ${p.active !== false ? 'checked' : ''}> Listed (visible to resellers)</label>
@@ -704,7 +721,7 @@ function userModal(role, id){
     <div class="grid2"><label class="f"><span>Full name</span><input class="in" name="name" value="${esc(u.name || '')}" required></label>
     ${role === 'reseller' ? `<label class="f"><span>Business name</span><input class="in" name="business" value="${esc(u.business || '')}"></label>` : `<label class="f"><span>Commission (%)</span><input class="in" type="number" min="0" max="90" step="0.5" name="commission" value="${esc(u.commission ?? settings().defaultCommission)}" required></label>`}
     <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(u.phone || '')}" ${role === 'reseller' ? 'required' : ''}></label>
-    ${role === 'reseller' ? `<label class="f"><span>State</span><input class="in" name="state" value="${esc(u.state || '')}"></label>
+    ${role === 'reseller' ? `${isNew ? `<label class="f"><span>State</span><input class="in" name="state" value="${esc(u.state || '')}"></label>` : addressFields(u)}
       <label class="f"><span>Tier</span><select class="in" name="tier">${tiers().map(t => `<option value="${t.id}" ${t.id === tierOf(u.tier).id ? 'selected' : ''}>${esc(t.name)} (${t.discount}% off)</option>`).join('')}</select></label>` : ''}
     ${isNew && role === 'agent' && isAdm(viewer.role) ? `<label class="f"><span>Reseller</span><select class="in" name="parent_id" required>${users().filter(x => x.role === 'reseller' && x.status === 'active').map(x => `<option value="${x.id}">${esc(x.business || x.name)}</option>`).join('')}</select></label>` : ''}
     ${isNew
@@ -726,8 +743,13 @@ function saleModal(pid){
     <label class="f"><span>Product</span><select class="in" name="productId" data-chg="saleProduct">${avail.map(p => `<option value="${p.id}" ${p.id === first.id ? 'selected' : ''}>${esc(p.name)} — ${items[p.id]} available</option>`).join('')}</select></label>
     <div class="grid2"><label class="f"><span>Quantity</span><input class="in" type="number" name="qty" min="1" value="1" required></label>
     <label class="f"><span>Unit price (RM)</span><input class="in" type="number" name="price" id="salePrice" min="0" step="0.01" value="${first.rrp}" required></label>
-    <label class="f"><span>Customer name</span><input class="in" name="customer" placeholder="Optional"></label>
-    <label class="f"><span>Customer phone</span><input class="in" name="customerPhone" placeholder="Optional"></label></div>
+    <label class="f"><span>Customer name</span><input class="in" name="customer" id="saleCust"></label>
+    <label class="f"><span>Customer phone</span><input class="in" name="customerPhone" id="salePhone"></label></div>
+    <div class="pm" style="flex-direction:row">
+      <label class="pmopt" style="flex:1"><input type="radio" name="delivery" value="walkin" checked data-chg="saleDelivery"><span><b>Walk-in</b><small>Customer collects</small></span></label>
+      <label class="pmopt" style="flex:1"><input type="radio" name="delivery" value="courier" data-chg="saleDelivery"><span><b>Courier</b><small>Prints an airway bill</small></span></label></div>
+    <div id="shipBox" hidden><div class="grid2">${addressFields({})}</div>
+      <label class="chk"><input type="checkbox" name="cod"> Cash on delivery (COD): courier collects the sale total</label></div>
     ${u.role === 'agent' ? `<p class="sm muted">You earn ${u.commission ?? settings().defaultCommission}% commission on this sale.</p>` : ''}
     <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Cancel</button><button class="btn primary">Record sale</button></div></form>`);
 }
@@ -755,7 +777,7 @@ function payModal(oid){
     <div class="pmsec" data-pm="transfer" hidden>${bankSet ? `<div class="bankbox"><div><span>Bank</span><b>${esc(st.bankName)}</b></div><div><span>Account no.</span><b class="num">${esc(st.accountNo)}</b></div><div><span>Account holder</span><b>${esc(st.accountName)}</b></div><div><span>Payment reference</span><b class="num">${esc(o.number)}</b></div></div>` : `<div class="bankbox">HQ hasn't added bank details yet. Please contact HQ for the account number.</div>`}</div>
     <label class="f" id="refWrap" hidden><span>Transaction reference no.</span><input class="in" name="ref" placeholder="From your bank or e-wallet receipt"></label>
     <div class="sim">Payments are simulated until a payment gateway is connected: no money moves through this page. HQ checks each payment before releasing stock.</div>
-    <div class="mfoot"><button type="button" class="btn ghost" data-act="close">Pay later</button><button class="btn accent" id="payBtn">Pay ${RM(o.total)}</button></div></form>`);
+    <div class="mfoot">${o.awbNo ? `<button type="button" class="btn ghost" data-act="awbOrder" data-id="${oid}">Print AWB</button>` : ''}<button type="button" class="btn ghost" data-act="close">Pay later</button><button class="btn accent" id="payBtn">Pay ${RM(o.total)}</button></div></form>`);
 }
 function orderModal(id){
   const o = C.orders[id]; if (!o) return;
@@ -765,7 +787,101 @@ function orderModal(id){
   <tr><td colspan="3"><b>Total</b></td><td class="r num"><b>${RM(o.total)}</b></td></tr></tbody></table>
   ${o.payment ? `<div class="bankbox" style="margin-top:14px"><div><span>Method</span><b>${esc(PM[o.payment.method] || '')}${o.payment.bank ? ' · ' + esc(o.payment.bank) : ''}</b></div><div><span>Reference</span><b class="num">${esc(o.payment.ref || '')}</b></div><div><span>Paid</span><b>${fdate(o.payment.paidAt)}</b></div></div>` : ''}
   ${o.rejectReason ? `<p class="sm" style="color:var(--err)">Rejected: ${esc(o.rejectReason)}</p>` : ''}
-  <div class="mfoot"><button class="btn" data-act="close">Close</button></div>`);
+  ${o.awbNo ? `<div class="bankbox" style="margin-top:14px"><div><span>Ship to</span><b>${esc(o.shipName || '')}</b></div><div><span></span><span>${esc(o.shipAddress || '')}, ${esc(o.shipPostcode || '')} ${esc(o.shipCity || '')}</span></div><div><span>AWB no.</span><b class="num">${esc(o.awbNo)}</b></div></div>` : ''}
+  <div class="mfoot">${o.awbNo && !['cancelled', 'rejected'].includes(o.status) ? `<button class="btn" data-act="awbOrder" data-id="${o.id}">Print AWB</button>` : ''}<button class="btn" data-act="close">Close</button></div>`);
+}
+
+/* ================= airway bill (AWB) ================= */
+// Code 128 (set B) barcode as SVG
+const C128 = ["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+function code128Svg(text, heightMm, widthMm){
+  const vals = [104];
+  for (const ch of String(text)) { const v = ch.charCodeAt(0) - 32; if (v < 0 || v > 94) continue; vals.push(v); }
+  let sum = 104; for (let i = 1; i < vals.length; i++) sum += i * vals[i];
+  vals.push(sum % 103); vals.push(106);
+  const widths = vals.map(v => C128[v]).join('');
+  const quiet = 10; let total = quiet * 2; for (const w of widths) total += +w;
+  let x = quiet, bars = '';
+  for (let i = 0; i < widths.length; i++) { const w = +widths[i]; if (i % 2 === 0) bars += `<rect x="${x}" y="0" width="${w}" height="100"/>`; x += w; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} 100" preserveAspectRatio="none" style="width:${widthMm}mm;height:${heightMm}mm;display:block">${bars}</svg>`;
+}
+
+function awbData(kind, id){
+  const st = settings();
+  if (kind === 'order') {
+    const o = C.orders[id]; if (!o) return null;
+    const units = (o.items || []).reduce((s, i) => s + i.qty, 0);
+    const kg = (o.items || []).reduce((s, i) => s + i.qty * ((C.products[i.productId] || {}).weightKg || 0), 0);
+    return { awb:o.awbNo, ref:o.number, date:o.createdAt, pieces:1, units, kg, cod:0,
+      contents:(o.items || []).map(i => `${i.name} ×${i.qty}`).join(', '),
+      from:{name:st.companyName, phone:st.phone, address:st.address, postcode:st.postcode, city:st.city, state:st.state},
+      to:{name:o.shipName, phone:o.shipPhone, address:o.shipAddress, postcode:o.shipPostcode, city:o.shipCity, state:o.shipState} };
+  }
+  const s = C.sales[id]; if (!s) return null;
+  const r = C.users[s.resellerId] || {}; const seller = C.users[s.sellerId] || {};
+  const kg = s.qty * ((C.products[s.productId] || {}).weightKg || 0);
+  return { awb:s.awbNo, ref:'Sale ' + id.slice(0, 8).toUpperCase() + (s.sellerRole === 'agent' ? ' · Agent ' + (seller.name || '') : ''), date:s.createdAt, pieces:1, units:s.qty, kg,
+    cod: s.cod ? s.total : 0, contents:`${s.productName} ×${s.qty}`,
+    from:{name:r.business || r.name || '', phone:r.phone, address:r.address, postcode:r.postcode, city:r.city, state:r.state},
+    to:{name:s.customer, phone:s.customerPhone, address:s.shipAddress, postcode:s.shipPostcode, city:s.shipCity, state:s.shipState} };
+}
+
+function awbHtml(d){
+  const line = a => [a.address, [a.postcode, a.city].filter(Boolean).join(' '), a.state].filter(Boolean).map(esc).join('<br>');
+  const dt = d.date ? new Date(d.date).toLocaleDateString('en-MY', {day:'2-digit', month:'short', year:'numeric'}) : '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>AWB ${esc(d.awb)}</title><style>
+  @page{size:100mm 150mm;margin:0}
+  *{box-sizing:border-box}html,body{margin:0;padding:0}
+  body{font:9pt/1.25 Arial,Helvetica,sans-serif;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .lbl{width:100mm;height:150mm;padding:3mm;display:flex;flex-direction:column}
+  .box{border:0.5mm solid #000}
+  .hd{display:flex;align-items:stretch;border-bottom:0.5mm solid #000}
+  .brand{flex:1;padding:2mm 2.5mm;display:flex;align-items:center;gap:2mm}
+  .brand i{width:8mm;height:8mm;border-radius:1.5mm;background:#000;color:#fff;font-style:normal;font-weight:900;font-size:13pt;display:grid;place-items:center}
+  .brand b{font-size:10.5pt;line-height:1.1}.brand small{display:block;font-size:6.5pt;letter-spacing:.06em}
+  .svc{width:30mm;border-left:0.5mm solid #000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1mm}
+  .svc .k{font-size:6.5pt;letter-spacing:.05em}.svc .v{font-size:12pt;font-weight:900;line-height:1.05}
+  .cod{background:#000;color:#fff}
+  .bc{padding:2mm 2.5mm 1.5mm;border-bottom:0.5mm solid #000;text-align:center}
+  .bc .no{font:700 11pt/1 'Courier New',monospace;letter-spacing:.12em;margin-top:1mm}
+  .sec{padding:1.6mm 2.5mm;border-bottom:0.5mm solid #000}
+  .sec .k{font-size:6.5pt;font-weight:700;letter-spacing:.08em}
+  .to .nm{font-size:12pt;font-weight:900;margin-top:.5mm}.to .ad{font-size:9.5pt;margin-top:.5mm}
+  .to .pc{display:flex;justify-content:space-between;align-items:flex-end;margin-top:1mm}
+  .to .pc b{font-size:20pt;line-height:1;font-weight:900;letter-spacing:.04em}
+  .fr .nm{font-weight:700}.fr .ad{font-size:7.5pt}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:0.5mm solid #000}
+  .grid>div{padding:1.2mm 1.5mm;border-right:0.3mm solid #000}.grid>div:last-child{border-right:0}
+  .grid .k{font-size:6pt;font-weight:700;letter-spacing:.06em}.grid .v{font-size:9pt;font-weight:700}
+  .ct{padding:1.4mm 2.5mm;font-size:7.5pt;border-bottom:0.5mm solid #000;flex:1;overflow:hidden}
+  .ft{display:flex;align-items:center;gap:2mm;padding:1.5mm 2.5mm}
+  .ft .sig{flex:1;font-size:6.5pt;border-top:0.3mm dashed #000;padding-top:1mm;margin-top:5mm}
+  </style></head><body><div class="lbl"><div class="box" style="display:flex;flex-direction:column;flex:1">
+  <div class="hd"><div class="brand"><i>${esc((settings().companyName || 'R').trim().charAt(0).toUpperCase())}</i><div><b>${esc(settings().companyName)}</b><small>AIRWAY BILL · STANDARD DELIVERY</small></div></div>
+    <div class="svc ${d.cod ? 'cod' : ''}"><span class="k">${d.cod ? 'CASH ON DELIVERY' : 'PAYMENT'}</span><span class="v">${d.cod ? esc(RM(d.cod)) : 'PREPAID'}</span></div></div>
+  <div class="bc">${code128Svg(d.awb, 17, 84)}<div class="no">${esc(d.awb)}</div></div>
+  <div class="sec to"><div class="k">DELIVER TO</div><div class="nm">${esc(d.to.name || '')}</div><div class="ad">${line(d.to) || '<i>No address</i>'}</div>
+    <div class="pc"><span>Tel: <b style="font-size:10pt">${esc(d.to.phone || '-')}</b></span><b>${esc(d.to.postcode || '')}</b></div></div>
+  <div class="sec fr"><div class="k">FROM</div><div class="nm">${esc(d.from.name || '')} · ${esc(d.from.phone || '')}</div><div class="ad">${line(d.from) || '<i>Sender address not set</i>'}</div></div>
+  <div class="grid"><div><div class="k">DATE</div><div class="v">${esc(dt)}</div></div><div><div class="k">PIECES</div><div class="v">${d.pieces}</div></div>
+    <div><div class="k">UNITS</div><div class="v">${d.units}</div></div><div><div class="k">WEIGHT</div><div class="v">${d.kg ? d.kg.toFixed(2) + ' kg' : '—'}</div></div></div>
+  <div class="ct"><b>REF:</b> ${esc(d.ref)}<br><b>CONTENTS:</b> ${esc(d.contents)}</div>
+  <div class="ft">${code128Svg(d.ref.split(' ')[0] === 'Sale' ? d.awb : d.ref, 8, 38)}<div class="sig">Received in good condition: name, signature &amp; date</div></div>
+  </div></div></body></html>`;
+}
+
+function printAwb(kind, id){
+  const d = awbData(kind, id);
+  if (!d || !d.awb) { toast('This record has no airway bill.', 'err'); return; }
+  let f = document.getElementById('awbFrame');
+  if (f) f.remove();
+  f = document.createElement('iframe');
+  f.id = 'awbFrame';
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(f);
+  const doc = f.contentWindow.document;
+  doc.open(); doc.write(awbHtml(d)); doc.close();
+  setTimeout(() => { if (!f.isConnected || !f.contentWindow) return; try { f.contentWindow.focus(); f.contentWindow.print(); } catch(e) { toast('Your browser blocked printing. Try again.', 'err'); } }, 250);
 }
 
 /* ================= toast ================= */
@@ -801,6 +917,8 @@ const ACT = {
       () => setUserStatus(id, 'suspended', pend ? 'Application declined.' : 'Account suspended.'), true);
   },
   newSale: id => saleModal(id),
+  awbOrder: id => printAwb('order', id),
+  awbSale: id => printAwb('sale', id),
   viewOrder: id => orderModal(id),
   pay: id => payModal(id),
   cancelOrder: id => confirmBox('Cancel ' + C.orders[id].number + '?', 'This order hasn\'t been paid. Cancelling removes it from HQ\'s queue.', 'Cancel order', () => call(() => sb.rpc('cancel_order', {p_order:id}), 'Order cancelled.'), true),
@@ -828,6 +946,7 @@ const ACT = {
 const CHG = {
   tier: (id, el) => { const u = C.users[id]; call(() => sb.from('profiles').update({tier: el.value}).eq('id', id), `${u.business || u.name} moved to ${tierOf(el.value).name}.`); },
   pm: (id, el) => { const m = el.value; document.querySelectorAll('.pmsec').forEach(s => s.hidden = s.dataset.pm !== m); $('#refWrap').hidden = m === 'fpx'; $('#refWrap input').required = m !== 'fpx'; },
+  saleDelivery: (id, el) => { const c = el.value === 'courier'; $('#shipBox').hidden = !c; ['#saleCust', '#salePhone'].forEach(q => $(q).required = c); document.querySelectorAll('#shipBox [name=address], #shipBox [name=postcode]').forEach(i => i.required = c); },
   saleProduct: (id, el) => { const p = C.products[el.value]; if (p) $('#salePrice').value = p.rrp; },
 };
 const INP = {
@@ -864,7 +983,7 @@ const FORMS = {
     S.authTab = 'login'; render(); toast('Application sent. HQ will review it, then you can sign in with your email.');
   },
   async product(f){
-    const row = {name: f.name.trim(), sku: f.sku.trim().toUpperCase(), category: f.category.trim() || null, rrp: r2(f.rrp), active: !!f.active};
+    const row = {name: f.name.trim(), sku: f.sku.trim().toUpperCase(), category: f.category.trim() || null, rrp: r2(f.rrp), weight_kg: f.weightKg === '' ? null : Number(f.weightKg), active: !!f.active};
     if (f.id) return ok(await call(() => sb.from('products').update(row).eq('id', f.id), 'Product updated.'));
     return ok(await call(() => sb.from('products').insert({...row, hq_stock: int(f.hqStock)}), 'Product added.'));
   },
@@ -879,7 +998,7 @@ const FORMS = {
     }
     let r = f.role === 'agent'
       ? await call(() => sb.rpc('update_agent', {p_agent:f.id, p_name:f.name, p_phone:f.phone || '', p_commission:Number(f.commission), p_status:null}))
-      : await call(() => sb.from('profiles').update({name:f.name.trim(), business:(f.business || '').trim() || null, phone:(f.phone || '').trim(), state:(f.state || '').trim() || null, tier:f.tier}).eq('id', f.id));
+      : await call(() => sb.from('profiles').update({name:f.name.trim(), business:(f.business || '').trim() || null, phone:(f.phone || '').trim(), state:(f.state || '').trim() || null, address:(f.address || '').trim() || null, postcode:(f.postcode || '').trim() || null, city:(f.city || '').trim() || null, tier:f.tier}).eq('id', f.id));
     if (r == null) return false;
     if (f.password) { r = await call(() => accounts({action:'reset_password', user_id:f.id, password:f.password})); if (r == null) return false; }
     toast(f.password ? 'Saved, and the password was reset.' : 'Saved.');
@@ -892,16 +1011,26 @@ const FORMS = {
     toast(f.password ? 'Saved, and the password was reset.' : 'Saved.');
   },
   async sale(f){
-    const res = await call(() => sb.rpc('record_sale', {p_product:f.productId, p_qty:int(f.qty), p_price:r2(f.price), p_customer:f.customer, p_phone:f.customerPhone}));
+    const courier = f.delivery === 'courier';
+    if (courier && !((f.customer || '').trim() && (f.customerPhone || '').trim() && (f.address || '').trim() && (f.postcode || '').trim())) { toast('For courier delivery, enter the customer\'s name, phone, address and postcode.', 'err'); return false; }
+    const a = addrOf(f);
+    const res = await call(() => sb.rpc('record_sale', {p_product:f.productId, p_qty:int(f.qty), p_price:r2(f.price), p_customer:f.customer, p_phone:f.customerPhone,
+      p_delivery: courier ? 'courier' : 'walkin', p_cod: courier && !!f.cod, p_address:a.address, p_postcode:a.postcode, p_city:a.city, p_state:a.state}));
     if (res == null) return false;
     const s = C.sales[res]; toast(s ? `Sale recorded: ${RM(s.total)}${s.commission ? ' · commission ' + RM(s.commission) : ''}` : 'Sale recorded.');
+    if (courier && s && s.awbNo) setTimeout(() => printAwb('sale', res), 300);
   },
   async pay(f, form){
     if (f.method !== 'fpx' && !(f.ref || '').trim()) { toast('Enter the transaction reference from your receipt.', 'err'); return false; }
     if (f.method === 'fpx') { const b = form.querySelector('#payBtn'); b.textContent = 'Connecting to ' + f.bank + '…'; await new Promise(r => setTimeout(r, 1200)); }
     return ok(await call(() => sb.rpc('submit_payment', {p_order:f.orderId, p_method:f.method, p_bank:f.bank || null, p_ref:f.ref || null}), 'Payment submitted. HQ will verify it and release your stock.'));
   },
-  async profile(f){ await call(() => sb.rpc('update_my_profile', {p_name:f.name, p_phone:f.phone || '', p_business:f.business || ''}), 'Details saved.'); return false; },
+  async profile(f){
+    const a = addrOf(f);
+    await call(() => sb.rpc('update_my_profile', {p_name:f.name, p_phone:f.phone || '', p_business:f.business || '',
+      p_address: f.address == null ? null : (a.address || ''), p_postcode: f.postcode == null ? null : (a.postcode || ''), p_city: f.city == null ? null : (a.city || ''), p_state: f.state == null ? null : (a.state || '')}), 'Details saved.');
+    return false;
+  },
   async password(f, form){
     const {error} = await sb.auth.signInWithPassword({email: S.authEmail, password: f.cur});
     if (error) { toast('Current password is wrong.', 'err'); return false; }
@@ -911,7 +1040,7 @@ const FORMS = {
   },
   async settings(f){
     const r = await call(async () => {
-      const a = await sb.from('settings').update({company_name:f.companyName.trim(), bank_name:f.bankName.trim(), account_no:f.accountNo.trim(), account_name:f.accountName.trim(), default_commission:Number(f.defaultCommission) || 0, low_stock:int(f.lowStock)}).eq('id', 1);
+      const a = await sb.from('settings').update({company_name:f.companyName.trim(), bank_name:f.bankName.trim(), account_no:f.accountNo.trim(), account_name:f.accountName.trim(), default_commission:Number(f.defaultCommission) || 0, low_stock:int(f.lowStock), phone:(f.phone || '').trim(), address:(f.address || '').trim(), postcode:(f.postcode || '').trim(), city:(f.city || '').trim(), state:(f.state || '').trim()}).eq('id', 1);
       if (a.error) return a;
       const ts = tiers().map((t, i) => ({id:t.id, name:(f['tn_' + i] || t.name).trim(), discount:Math.min(90, Math.max(0, Number(f['td_' + i]) || 0))}))
         .sort((x, y) => y.discount - x.discount).map((t, i) => ({...t, sort:i + 1}));
