@@ -211,6 +211,7 @@ const sales = () => list('sales').sort((a, b) => String(b.createdAt).localeCompa
 const inv = rid => (C.inventory[rid] && C.inventory[rid].items) || {};
 const me = () => (S.me && C.users[S.me]) ? {id:S.me, ...C.users[S.me]} : null;
 const uname = id => (C.users[id] && (C.users[id].business || C.users[id].name)) || '—';
+const onBrandPage = () => location.pathname.replace(/\/+$/, '') === '/brand' || location.hash === '#brand';
 const isAdm = r => r === 'admin' || r === 'superadmin';
 const handle = u => u.role === 'agent' ? '@' + (u.username || '') : (u.email || '');
 const lowStock = () => Number(settings().lowStock) || 0;
@@ -231,7 +232,7 @@ async function loadAll(){
   if (st) C.config.settings = { companyName: st.company_name, bankName: st.bank_name, accountName: st.account_name, accountNo: st.account_no, defaultCommission: Number(st.default_commission), lowStock: st.low_stock };
   C.config.tiers = (ti || []).map(t => ({id:t.id, name:t.name, discount:Number(t.discount), sort:t.sort}));
   (pr || []).forEach(p => C.products[p.id] = {sku:p.sku, name:p.name, category:p.category, rrp:Number(p.rrp), hqStock:p.hq_stock, active:p.active, createdAt:p.created_at});
-  (pf || []).forEach(u => C.users[u.id] = {role:u.role, status:u.status, name:u.name, business:u.business, phone:u.phone, email:u.email, state:u.state, username:u.username, tier:u.tier, parentId:u.parent_id, commission: u.commission == null ? null : Number(u.commission), createdAt:u.created_at});
+  (pf || []).forEach(u => C.users[u.id] = {role:u.role, status:u.status, name:u.name, business:u.business, phone:u.phone, email:u.email, state:u.state, companyReg:u.company_reg, username:u.username, tier:u.tier, parentId:u.parent_id, commission: u.commission == null ? null : Number(u.commission), createdAt:u.created_at});
   (iv || []).forEach(i => { (C.inventory[i.reseller_id] = C.inventory[i.reseller_id] || {items:{}}).items[i.product_id] = i.qty; });
   (od || []).forEach(o => C.orders[o.id] = {number:o.number, resellerId:o.reseller_id, total:Number(o.total), status:o.status, createdAt:o.created_at, rejectReason:o.reject_reason,
     items:(o.order_items || []).map(i => ({productId:i.product_id, name:i.name, qty:i.qty, unitPrice:Number(i.unit_price)})),
@@ -247,7 +248,7 @@ async function refresh(){
 function accessProblem(uid){
   const p = C.users[uid];
   if (!p) return 'This account doesn\'t have access to the system.';
-  if (p.status === 'pending') return 'Your application is still waiting for HQ approval.';
+  if (p.status === 'pending') return p.role === 'admin' ? 'Your brand owner application is still waiting for approval.' : 'Your application is still waiting for HQ approval.';
   if (p.status !== 'active') return 'This account is suspended. Please contact HQ.';
   if (p.role === 'agent' && (!C.users[p.parentId] || C.users[p.parentId].status !== 'active')) return 'Your reseller\'s account is inactive. Please contact them.';
   return null;
@@ -313,7 +314,7 @@ function build(){
   if (S.mode === 'loading') return `<div class="loading"><div><div class="spin"></div><b>Loading…</b></div></div>`;
   if (!S.pub.hasAdmin && !S.me) return setupView();
   const u = me();
-  if (!u) return authView();
+  if (!u) return onBrandPage() ? brandView() : authView();
   return shell(u);
 }
 
@@ -344,6 +345,26 @@ function setupView(){
     <button class="btn primary block">Create HQ admin</button>
   </form></div></div></div>`;
 }
+function brandView(){
+  const hero = `<div class="auth-hero"><div class="logo"><i>R</i>${esc(settings().companyName)}</div>
+    <div><h1>Bring your brand to our network</h1><p>Create a brand owner account to manage products, HQ stock, reseller tiers and payments with our team.</p></div>
+    <div class="tierlist"><div><b>1. Apply</b><span>Takes 2 minutes</span></div><div><b>2. Get approved</b><span>By the system admin</span></div><div><b>3. Sign in</b><span>With your email</span></div></div></div>`;
+  if (S.brandDone) return `<div class="auth">${hero}<div class="auth-form"><div class="auth-card">
+    <h2>Application received</h2><p class="muted">Thanks, ${esc(S.brandDone)}. The system admin will review your brand owner account. Once it's approved, sign in with the email and password you just set.</p>
+    <a class="btn primary block" href="/" style="margin-top:18px;text-decoration:none">Go to sign in</a></div></div></div>`;
+  return `<div class="auth">${hero}<div class="auth-form"><div class="auth-card">
+    <h2>Brand owner sign-up</h2><p class="muted">Your account becomes active after the system admin approves it.</p>
+    <form data-form="brand" style="margin-top:18px">
+      <div class="grid2"><label class="f"><span>Brand name</span><input class="in" name="business" required placeholder="e.g. Sinar Glow"></label>
+      <label class="f"><span>Company reg. no. (SSM)</span><input class="in" name="company_reg" placeholder="Optional"></label>
+      <label class="f"><span>Owner's full name</span><input class="in" name="name" required autocomplete="name"></label>
+      <label class="f"><span>Phone</span><input class="in" name="phone" required autocomplete="tel"></label></div>
+      <label class="f"><span>Email (you'll sign in with this)</span><input class="in" name="email" type="email" required autocomplete="email"></label>
+      <label class="f"><span>Password</span><input class="in" name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+      <button class="btn accent block">Create brand owner account</button></form>
+    <p class="sm muted" style="margin-top:14px">Already have an account? <a href="/">Sign in</a></p>
+  </div></div></div>`;
+}
 function authView(){
   const login = S.authTab === 'login';
   return `<div class="auth">
@@ -367,6 +388,7 @@ function authView(){
       <label class="f"><span>Email (you'll sign in with this)</span><input class="in" name="email" type="email" required autocomplete="email"></label>
       <label class="f"><span>Password</span><input class="in" name="password" type="password" required minlength="8" autocomplete="new-password"></label>
       <button class="btn accent block">Submit application</button></form>`}
+    <p class="sm muted" style="margin-top:16px">Own a brand? <a href="/brand">Create a brand owner account</a></p>
   </div></div></div>`;
 }
 
@@ -384,6 +406,7 @@ function shell(u){
   if (isAdm(u.role)) {
     counts.orders = orders().filter(o => o.status === 'payment_submitted').length;
     counts.resellers = users().filter(x => x.role === 'reseller' && x.status === 'pending').length;
+    if (u.role === 'superadmin') counts.admins = users().filter(x => x.role === 'admin' && x.status === 'pending').length;
   }
   if (u.role === 'reseller') counts.myorders = orders().filter(o => o.resellerId === u.id && o.status === 'awaiting_payment').length;
   const sub = u.role === 'reseller' ? badge('tier', tierOf(u.tier).name + ' reseller') : u.role === 'agent' ? `<span class="sm">Agent of ${esc(uname(u.parentId))}</span>` : badge('role', u.role === 'superadmin' ? 'System admin' : 'HQ admin');
@@ -509,13 +532,17 @@ function settingsView(){
 
 /* ---------- system admin ---------- */
 function adminsView(u){
-  const rows = users().filter(x => isAdm(x.role)).sort((a, b) => (a.role === 'superadmin' ? -1 : 0) - (b.role === 'superadmin' ? -1 : 0)).map(a => {
+  const rank = a => a.role === 'superadmin' ? 0 : a.status === 'pending' ? 1 : 2;
+  const rows = users().filter(x => isAdm(x.role)).sort((a, b) => rank(a) - rank(b)).map(a => {
     const self = a.id === u.id, sup = a.role === 'superadmin';
-    const acts = (sup || self) ? '' : (a.status === 'active' ? `<button class="btn xs" data-act="suspendUser" data-id="${a.id}">Suspend</button>` : `<button class="btn xs" data-act="approveUser" data-id="${a.id}">Reactivate</button>`) + `<button class="btn xs" data-act="editAdmin" data-id="${a.id}">Edit</button>`;
-    return `<tr><td><b>${esc(a.name)}</b>${self ? ' <span class="sm muted">(you)</span>' : ''}<div class="sm muted">${esc(a.email || '')}</div></td><td>${esc(a.phone || '')}</td>
+    const acts = (sup || self) ? '' : (a.status === 'pending' ? `<button class="btn xs primary" data-act="approveUser" data-id="${a.id}">Approve</button><button class="btn xs" data-act="suspendUser" data-id="${a.id}">Decline</button>`
+      : a.status === 'active' ? `<button class="btn xs" data-act="suspendUser" data-id="${a.id}">Suspend</button>` : `<button class="btn xs" data-act="approveUser" data-id="${a.id}">Reactivate</button>`) + `<button class="btn xs" data-act="editAdmin" data-id="${a.id}">Edit</button>`;
+    return `<tr><td><b>${esc(a.name)}</b>${self ? ' <span class="sm muted">(you)</span>' : ''}<div class="sm muted">${esc(a.email || '')}</div>${a.business ? `<div class="sm">Brand: <b>${esc(a.business)}</b>${a.companyReg ? ' · SSM ' + esc(a.companyReg) : ''}</div>` : ''}</td><td>${esc(a.phone || '')}</td>
       <td>${sup ? badge('tier', 'System admin') : badge('info', 'HQ admin')}</td><td>${ustatus(a.status)}</td><td class="sm muted">${fday(a.createdAt)}</td><td><div class="acts">${acts}</div></td></tr>`;
   });
-  return pageTop('HQ admins', 'Only the system admin can add, suspend or reset HQ admin accounts. HQ admins run day-to-day operations but can\'t change admin accounts.', `<button class="btn primary" data-act="newAdmin">+ Add HQ admin</button>`)
+  const link = location.origin + '/brand';
+  return pageTop('HQ admins', 'Only the system admin can add, approve, suspend or reset HQ admin accounts. HQ admins run day-to-day operations but can\'t change admin accounts.', `<button class="btn primary" data-act="newAdmin">+ Add HQ admin</button>`)
+    + `<div class="tierbar"><b>Brand owner sign-up page</b><span class="num sm">${esc(link)}</span><button class="btn xs" style="margin-left:auto" data-act="copyBrandLink">Copy link</button></div>`
     + `<div class="card">${table(['Name', 'Phone', 'Role', 'Status', 'Added', ''], rows, 'No admins yet.')}</div>`;
 }
 function adminModal(id){
@@ -523,6 +550,8 @@ function adminModal(id){
   openModal(`<h3>${id ? 'Edit ' + esc(a.name) : 'Add HQ admin'}</h3><form data-form="admin"><input type="hidden" name="id" value="${esc(id || '')}">
     <div class="grid2"><label class="f"><span>Full name</span><input class="in" name="name" value="${esc(a.name || '')}" required></label>
     <label class="f"><span>Phone</span><input class="in" name="phone" value="${esc(a.phone || '')}"></label>
+    <label class="f"><span>Brand name</span><input class="in" name="business" value="${esc(a.business || '')}" placeholder="Optional"></label>
+    <label class="f"><span>Company reg. no. (SSM)</span><input class="in" name="company_reg" value="${esc(a.companyReg || '')}" placeholder="Optional"></label>
     ${id ? `<label class="f"><span>Sign-in</span><input class="in" value="${esc(a.email || '')}" disabled></label>` : `<label class="f"><span>Email (for sign-in)</span><input class="in" type="email" name="email" required></label>`}
     <label class="f"><span>${id ? 'Reset password' : 'Password'}</span><input class="in" type="password" name="password" minlength="8" ${id ? 'placeholder="Leave blank to keep"' : 'required'} autocomplete="new-password"></label></div>
     <p class="sm muted">HQ admins can manage products, stock, orders, resellers, agents and settings.</p>
@@ -759,6 +788,7 @@ const ACT = {
   newUser: role => { if (role === 'agent' && isAdm(me().role) && !users().some(x => x.role === 'reseller' && x.status === 'active')) { toast('Approve a reseller first.', 'err'); return; } userModal(role); },
   editUser: id => userModal(null, id),
   newAdmin: () => adminModal(),
+  copyBrandLink: async () => { try { await navigator.clipboard.writeText(location.origin + '/brand'); toast('Link copied.'); } catch(e) { toast('Copy failed. Select the link and copy it manually.', 'err'); } },
   editAdmin: id => adminModal(id),
   approveUser: id => setUserStatus(id, 'active', (C.users[id].name || 'Account') + ' is now active.'),
   suspendUser: id => {
@@ -819,6 +849,11 @@ const FORMS = {
     if (error) { toast(/invalid/i.test(error.message) ? 'Wrong email/username or password.' : errMsg(error), 'err'); return false; }
     await enter(data.user); render();
   },
+  async brand(f){
+    try { await accounts({action:'apply_brand_owner', ...f}); }
+    catch(e) { toast(errMsg(e), 'err'); return false; }
+    S.brandDone = f.name.trim().split(' ')[0]; render();
+  },
   async register(f){
     try { await accounts({action:'apply_reseller', ...f}); }
     catch(e) { toast(errMsg(e), 'err'); return false; }
@@ -846,8 +881,8 @@ const FORMS = {
     toast(f.password ? 'Saved, and the password was reset.' : 'Saved.');
   },
   async admin(f){
-    if (!f.id) return ok(await call(() => accounts({action:'create_admin', name:f.name, phone:f.phone, email:f.email, password:f.password}), `${f.name} added as HQ admin.`));
-    let r = await call(() => sb.from('profiles').update({name:f.name.trim(), phone:(f.phone || '').trim()}).eq('id', f.id));
+    if (!f.id) return ok(await call(() => accounts({action:'create_admin', name:f.name, phone:f.phone, email:f.email, password:f.password, business:f.business, company_reg:f.company_reg}), `${f.name} added as HQ admin.`));
+    let r = await call(() => sb.from('profiles').update({name:f.name.trim(), phone:(f.phone || '').trim(), business:(f.business || '').trim() || null, company_reg:(f.company_reg || '').trim() || null}).eq('id', f.id));
     if (r == null) return false;
     if (f.password) { r = await call(() => accounts({action:'reset_password', user_id:f.id, password:f.password})); if (r == null) return false; }
     toast(f.password ? 'Saved, and the password was reset.' : 'Saved.');
