@@ -22,7 +22,7 @@
   "rewrites": [
     {
       "source": "/brand",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ]
 }
